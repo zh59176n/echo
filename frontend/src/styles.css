@@ -978,6 +978,149 @@ body::before {
 }
 
 /* ======================================
+   MITRE ATT&CK Card
+   ====================================== */
+
+.attack-card {
+  background: var(--grad-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  padding: 32px 36px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.attack-card:hover {
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: var(--shadow-hover);
+}
+
+.attack-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.attack-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.attack-card-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.attack-ref-link {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--indigo);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.attack-ref-link:hover,
+.attack-ref-link:focus-visible {
+  background: rgba(129, 140, 248, 0.1);
+  border-color: rgba(129, 140, 248, 0.4);
+  outline: none;
+}
+
+.attack-technique-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attack-technique {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-left-width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  cursor: default;
+  outline: none;
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.attack-technique:hover      { transform: translateX(3px); background: rgba(255, 255, 255, 0.04); }
+.attack-technique:focus-visible {
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35);
+  border-top-color:    rgba(129, 140, 248, 0.3);
+  border-right-color:  rgba(129, 140, 248, 0.3);
+  border-bottom-color: rgba(129, 140, 248, 0.3);
+}
+
+.attack-technique.high   { border-left-color: var(--risk-high);   }
+.attack-technique.medium { border-left-color: var(--risk-medium); }
+.attack-technique.low    { border-left-color: var(--risk-low);    }
+
+.technique-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.technique-id {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--indigo);
+  background: rgba(99, 102, 241, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.technique-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.technique-severity {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.technique-severity.high   { color: #fca5a5; background: var(--risk-high-bg);   }
+.technique-severity.medium { color: #fcd34d; background: var(--risk-medium-bg); }
+.technique-severity.low    { color: #6ee7b7; background: var(--risk-low-bg);    }
+
+.technique-tactic {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.technique-desc {
+  font-size: 12.5px;
+  color: var(--muted-2);
+  line-height: 1.55;
+}
+
+/* ======================================
    Animations
    ====================================== */
 
@@ -1047,6 +1190,7 @@ body::before {
   .form-card        { margin: 0 16px 60px; padding: 24px 20px; }
   .dash-body        { padding: 20px 16px 56px; }
   .view-panel       { padding: 24px 20px; }
+  .attack-card      { padding: 24px 20px; }
   .view-panel-header { flex-direction: column-reverse; gap: 10px; }
   .view-icon        { font-size: 28px; }
   .view-tabs        { width: 100%; order: 3; }

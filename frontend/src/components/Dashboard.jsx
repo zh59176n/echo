@@ -161,6 +161,152 @@ function scoreInfo(score) {
   return                  { title: 'Minimal Visibility', desc: 'Very limited public digital presence detected. Your overall privacy posture is strong.' }
 }
 
+function buildAttackMappings(report) {
+  const techniques = []
+
+  const sigMap = {}
+  for (const s of (report.public_signals || [])) sigMap[s.id] = s
+
+  const riskIds = new Set((report.exposure_risks || []).map(r => r.id))
+  const domain = report.scan_meta?.domain_checked
+
+  const platformIds = ['github', 'gitlab', 'devto', 'hackernews', 'keybase', 'mastodon', 'gravatar']
+  const foundCount = platformIds.filter(id => sigMap[id]?.detected).length
+
+  // T1589.002 — Email Addresses
+  if (riskIds.has('github_email') || sigMap.gravatar?.detected) {
+    const sources = [riskIds.has('github_email') && 'GitHub', sigMap.gravatar?.detected && 'Gravatar'].filter(Boolean)
+    techniques.push({
+      id: 'T1589.002',
+      name: 'Email Addresses',
+      tactic: 'Reconnaissance',
+      parent: 'T1589 · Gather Victim Identity Information',
+      severity: riskIds.has('github_email') ? 'high' : 'medium',
+      description: `Email is publicly indexed via ${sources.join(' and ')}, making it a ready-made target for phishing, credential stuffing, and paste-site harvesting — no prior interaction required.`,
+    })
+  }
+
+  // T1593.003 — Code Repositories
+  if (sigMap.github?.detected || sigMap.gitlab?.detected) {
+    const repos = [sigMap.github?.detected && 'GitHub', sigMap.gitlab?.detected && 'GitLab'].filter(Boolean)
+    techniques.push({
+      id: 'T1593.003',
+      name: 'Code Repositories',
+      tactic: 'Reconnaissance',
+      parent: 'T1593 · Search Open Websites/Domains',
+      severity: 'medium',
+      description: `Public repositories on ${repos.join(' and ')} may expose API keys in commit history, employer context, internal tool names, and technology stack — all useful for crafting targeted attacks.`,
+    })
+  }
+
+  // T1593.001 — Social Media
+  const socialFound = ['mastodon', 'devto', 'hackernews'].filter(id => sigMap[id]?.detected)
+  if (socialFound.length > 0) {
+    const nameMap = { mastodon: 'Mastodon', devto: 'DEV.to', hackernews: 'HackerNews' }
+    techniques.push({
+      id: 'T1593.001',
+      name: 'Social Media',
+      tactic: 'Reconnaissance',
+      parent: 'T1593 · Search Open Websites/Domains',
+      severity: 'low',
+      description: `Profiles on ${socialFound.map(p => nameMap[p]).join(', ')} expose interests, writing style, and daily activity patterns — ideal material for crafting convincing spear-phishing lures.`,
+    })
+  }
+
+  // T1589 — Cross-platform identity correlation
+  if (riskIds.has('cross_platform') || foundCount >= 3) {
+    techniques.push({
+      id: 'T1589',
+      name: 'Gather Victim Identity Information',
+      tactic: 'Reconnaissance',
+      parent: null,
+      severity: foundCount >= 5 ? 'high' : 'medium',
+      description: `Consistent identity across ${foundCount} platforms allows automated cross-referencing. A threat actor can build a complete target dossier — name, email, employer, interests, active hours — in minutes with no special tools.`,
+    })
+  }
+
+  // T1590.002 — DNS (missing SPF / DMARC enables domain spoofing)
+  if (riskIds.has('no_spf') || riskIds.has('no_dmarc')) {
+    const missing = [riskIds.has('no_spf') && 'SPF', riskIds.has('no_dmarc') && 'DMARC'].filter(Boolean)
+    techniques.push({
+      id: 'T1590.002',
+      name: 'DNS',
+      tactic: 'Reconnaissance',
+      parent: 'T1590 · Gather Victim Network Information',
+      severity: riskIds.has('no_spf') ? 'medium' : 'low',
+      description: `Missing ${missing.join(' and ')} records${domain ? ` on ${domain}` : ''} enables domain spoofing. An attacker can send email appearing to originate from your domain — receiving servers have no policy to reject it.`,
+    })
+  }
+
+  // T1590.001 — Domain Properties (WHOIS / domain age)
+  if (domain && (riskIds.has('new_domain') || riskIds.has('young_domain') || sigMap.domain_age?.detected)) {
+    techniques.push({
+      id: 'T1590.001',
+      name: 'Domain Properties',
+      tactic: 'Reconnaissance',
+      parent: 'T1590 · Gather Victim Network Information',
+      severity: riskIds.has('new_domain') ? 'high' : 'low',
+      description: `WHOIS records for ${domain} are publicly queryable. Registrant history and domain age reveal trust posture and can inform lookalike-domain selection for impersonation campaigns.`,
+    })
+  }
+
+  return techniques
+}
+
+function AttackCard({ report }) {
+  const techniques = buildAttackMappings(report)
+  if (techniques.length === 0) return null
+
+  return (
+    <div
+      className="attack-card animate-in"
+      role="region"
+      aria-label="MITRE ATT&CK technique mappings"
+      style={{ animationDelay: '0.1s' }}
+    >
+      <div className="attack-card-header">
+        <div>
+          <div className="attack-card-title">🎯 MITRE ATT&CK Mapping</div>
+          <div className="attack-card-sub">
+            {techniques.length} applicable Reconnaissance technique{techniques.length !== 1 ? 's' : ''} identified from findings
+          </div>
+        </div>
+        <a
+          href="https://attack.mitre.org/tactics/TA0043/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="attack-ref-link"
+          aria-label="View TA0043 Reconnaissance tactic on MITRE ATT&CK, opens in new tab"
+        >
+          TA0043 ↗
+        </a>
+      </div>
+
+      <div className="attack-technique-list" role="list">
+        {techniques.map((t) => (
+          <div
+            key={t.id}
+            className={`attack-technique ${t.severity}`}
+            role="listitem"
+            tabIndex={0}
+            aria-label={`${t.id} ${t.name}, severity ${t.severity}: ${t.description}`}
+          >
+            <div className="technique-header" aria-hidden="true">
+              <span className="technique-id">{t.id}</span>
+              <span className="technique-name">{t.name}</span>
+              <span className={`technique-severity ${t.severity}`}>{t.severity}</span>
+            </div>
+            <div className="technique-tactic" aria-hidden="true">
+              {t.tactic}{t.parent ? ` · ${t.parent}` : ''}
+            </div>
+            <div className="technique-desc">{t.description}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function formatScanTime(iso) {
   if (!iso) return null
   const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
@@ -293,6 +439,9 @@ export default function Dashboard({ report, onBack }) {
             <div className="view-summary">{viewData.summary}</div>
           </div>
         )}
+
+        {/* ATT&CK card — only shown in Threat Actor view */}
+        {activeView === 'threat' && <AttackCard report={data} />}
       </div>
     </div>
   )
