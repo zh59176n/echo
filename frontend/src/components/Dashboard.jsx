@@ -1,66 +1,152 @@
 import React, { useState, useEffect } from 'react'
 
 const VIEW_CONFIG = {
-  recruiter: { label: 'Recruiter View', icon: '👔' },
-  advertiser: { label: 'Advertiser View', icon: '📢' },
-  threat: { label: 'Threat Actor View', icon: '🎣' },
+  recruiter:  { label: 'Recruiter View',    icon: '👔' },
+  advertiser: { label: 'Advertiser View',   icon: '📢' },
+  threat:     { label: 'Threat Actor View', icon: '🎣' },
+}
+
+// Ease-out cubic count-up
+function useCountUp(target, active) {
+  const [val, setVal] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const dur = 1500
+    const start = Date.now()
+    function frame() {
+      const t = Math.min((Date.now() - start) / dur, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setVal(Math.round(eased * target))
+      if (t < 1) requestAnimationFrame(frame)
+    }
+    requestAnimationFrame(frame)
+  }, [target, active])
+  return val
 }
 
 function ScoreRing({ score }) {
   const [animated, setAnimated] = useState(false)
+  const display = useCountUp(score, animated)
 
   useEffect(() => {
-    const t = setTimeout(() => setAnimated(true), 120)
+    const t = setTimeout(() => setAnimated(true), 140)
     return () => clearTimeout(t)
   }, [])
 
-  const r = 50
+  const cx = 70, cy = 70
+  const r  = 50
   const circ = 2 * Math.PI * r
+
+  // Arc fill
   const filled = animated ? (score / 100) * circ : 0
 
+  // Endpoint dot — travels along the arc tip
+  const endAngle  = -Math.PI / 2 + (animated ? (score / 100) : 0) * 2 * Math.PI
+  const dotX = cx + r * Math.cos(endAngle)
+  const dotY = cy + r * Math.sin(endAngle)
+
   return (
-    <svg width="148" height="148" viewBox="0 0 116 116" style={{ display: 'block' }}>
+    <svg width="158" height="158" viewBox="0 0 140 140" style={{ display: 'block', overflow: 'visible' }}>
       <defs>
-        <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#818cf8" />
           <stop offset="100%" stopColor="#22d3ee" />
         </linearGradient>
+
+        {/* Bloom filter for the arc glow */}
+        <filter id="bloom" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        {/* Dot glow */}
+        <filter id="dotglow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
+
+      {/* Outer orbit guide — dashed ring slightly beyond score ring */}
       <circle
-        cx="58" cy="58" r={r}
+        cx={cx} cy={cy} r="62"
         fill="none"
-        stroke="rgba(255,255,255,0.06)"
-        strokeWidth="7"
+        stroke="rgba(99, 102, 241, 0.1)"
+        strokeWidth="0.75"
+        strokeDasharray="3 6"
       />
+
+      {/* Track ring */}
+      <circle cx={cx} cy={cy} r={r} fill="none"
+        stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+
+      {/* Bloom halo (soft glow copy of the arc) */}
       <circle
-        cx="58" cy="58" r={r}
+        cx={cx} cy={cy} r={r}
         fill="none"
-        stroke="url(#scoreGrad)"
-        strokeWidth="7"
+        stroke="url(#sg)"
+        strokeWidth="14"
+        strokeLinecap="round"
+        strokeDasharray={`${filled} ${circ}`}
+        opacity="0.22"
+        style={{
+          transform: 'rotate(-90deg)',
+          transformOrigin: `${cx}px ${cy}px`,
+          transition: 'stroke-dasharray 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      />
+
+      {/* Score arc */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke="url(#sg)"
+        strokeWidth="8"
         strokeLinecap="round"
         strokeDasharray={`${filled} ${circ}`}
         style={{
           transform: 'rotate(-90deg)',
-          transformOrigin: '50% 50%',
+          transformOrigin: `${cx}px ${cy}px`,
           transition: 'stroke-dasharray 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       />
+
+      {/* Glowing satellite dot at arc tip */}
+      <g
+        filter="url(#dotglow)"
+        style={{
+          transform: `translate(${dotX}px, ${dotY}px)`,
+          transition: 'transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        <circle r="4.5" fill="#22d3ee" />
+        <circle r="8"   fill="#22d3ee" opacity="0.18" />
+      </g>
+
+      {/* Score number */}
       <text
-        x="58" y="52"
+        x={cx} y={cy - 6}
         textAnchor="middle"
         fill="#f1f5f9"
-        fontSize="26"
+        fontSize="28"
         fontWeight="700"
         fontFamily="Inter, sans-serif"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
       >
-        {score}
+        {display}
       </text>
       <text
-        x="58" y="68"
+        x={cx} y={cy + 12}
         textAnchor="middle"
-        fill="#64748b"
+        fill="#475569"
         fontSize="11"
         fontFamily="Inter, sans-serif"
+        letterSpacing="0.04em"
       >
         / 100
       </text>
@@ -68,18 +154,30 @@ function ScoreRing({ score }) {
   )
 }
 
-function scoreLabel(score) {
-  if (score >= 80) return { title: 'Highly Visible', desc: 'Your digital footprint is very extensive. Multiple platforms expose significant personal information about you.' }
+function scoreInfo(score) {
+  if (score >= 80) return { title: 'Highly Visible',     desc: 'Your digital footprint is very extensive. Multiple platforms expose significant personal information about you.' }
   if (score >= 60) return { title: 'Moderately Visible', desc: 'Your presence is detectable across several platforms. Some exposure risks warrant your attention.' }
-  if (score >= 40) return { title: 'Low Visibility', desc: 'Your digital footprint is relatively contained. A few minor exposure points were detected.' }
-  return { title: 'Minimal Visibility', desc: 'Very limited public digital presence detected. Your overall privacy posture is strong.' }
+  if (score >= 40) return { title: 'Low Visibility',     desc: 'Your digital footprint is relatively contained. A few minor exposure points were detected.' }
+  return                  { title: 'Minimal Visibility', desc: 'Very limited public digital presence detected. Your overall privacy posture is strong.' }
+}
+
+function formatScanTime(iso) {
+  if (!iso) return null
+  const diff = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 10)  return 'just now'
+  if (diff < 60)  return `${diff}s ago`
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function Dashboard({ report, onBack }) {
   const [activeView, setActiveView] = useState('recruiter')
   const data = report
-  const { title, desc } = scoreLabel(data.visibility_score)
+  const { title, desc } = scoreInfo(data.visibility_score)
   const viewData = data.views?.[activeView]
+  const meta = data.scan_meta
+  const platformCount = meta?.platforms_checked?.length ?? null
+  const scanTime = formatScanTime(meta?.scanned_at)
 
   return (
     <div className="dashboard">
@@ -102,7 +200,7 @@ export default function Dashboard({ report, onBack }) {
       </nav>
 
       <div className="dash-body">
-        {/* Score Hero */}
+        {/* Score hero */}
         <div className="score-hero animate-in">
           <div className="score-ring-wrap">
             <ScoreRing score={data.visibility_score} />
@@ -114,16 +212,20 @@ export default function Dashboard({ report, onBack }) {
             <div className="score-meta">
               <span className="score-meta-item">👤 {data.username}</span>
               <span className="score-meta-item">📧 {data.email}</span>
-              {data.website && (
-                <span className="score-meta-item">🌐 {data.website}</span>
-              )}
+              {data.website && <span className="score-meta-item">🌐 {data.website}</span>}
             </div>
+            {(platformCount || scanTime) && (
+              <div className="scan-meta-bar">
+                {platformCount && <span>🔍 {platformCount} platforms checked</span>}
+                {meta?.domain_checked && <span>· {meta.domain_checked}</span>}
+                {scanTime && <span>· {scanTime}</span>}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Cards Grid */}
+        {/* Cards */}
         <div className="cards-grid">
-          {/* Public Signals */}
           <div className="card animate-in" style={{ animationDelay: '0.08s' }}>
             <div className="card-title">⭐ Public Signals</div>
             <div className="signal-list">
@@ -137,7 +239,6 @@ export default function Dashboard({ report, onBack }) {
             </div>
           </div>
 
-          {/* Exposure Risks */}
           <div className="card animate-in" style={{ animationDelay: '0.16s' }}>
             <div className="card-title">⚠️ Exposure Risks</div>
             <div className="risk-list">
@@ -153,7 +254,6 @@ export default function Dashboard({ report, onBack }) {
             </div>
           </div>
 
-          {/* Recommended Actions */}
           <div className="card animate-in" style={{ animationDelay: '0.24s' }}>
             <div className="card-title">🧭 Recommended Actions</div>
             <div className="action-list">
@@ -170,9 +270,9 @@ export default function Dashboard({ report, onBack }) {
           </div>
         </div>
 
-        {/* View Panel */}
+        {/* View panel — key forces re-animation on tab change */}
         {viewData && (
-          <div key={activeView} className="view-panel animate-in" style={{ animationDelay: '0.32s' }}>
+          <div key={activeView} className="view-panel animate-in" style={{ animationDelay: '0s' }}>
             <div className="view-panel-header">
               <div>
                 <div className="view-eyebrow">{VIEW_CONFIG[activeView].label}</div>
