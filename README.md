@@ -2,7 +2,7 @@
 
 A privacy intelligence tool that scans someone's public digital footprint and shows what recruiters, advertisers, and threat actors can discover about them.
 
-**[Live Demo →](https://echo-privacy.vercel.app)**
+**[Live Demo →](https://echo-psi-six.vercel.app)**
 
 ---
 
