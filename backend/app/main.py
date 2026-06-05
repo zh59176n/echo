@@ -651,6 +651,11 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
 
 # ─── Route ────────────────────────────────────────────────────────────────────
 
+@app.get("/")
+async def health():
+    return {"status": "ok", "service": "echo-api"}
+
+
 @app.post("/report")
 async def report(payload: ReportRequest):
     username    = (payload.username  or "").strip()
