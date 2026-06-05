@@ -1,6 +1,6 @@
 # Echo
 
-A privacy intelligence tool that scans someone's public digital footprint and shows what recruiters, advertisers, and threat actors can discover about them.
+Privacy scanner — enter a username/email and see what's publicly findable across developer platforms, social media, and DNS records.
 
 **[Live Demo →](https://echo-psi-six.vercel.app)**
 
@@ -18,47 +18,46 @@ A privacy intelligence tool that scans someone's public digital footprint and sh
 
 ## What it does
 
-Enter a username and email. Echo concurrently queries GitHub, GitLab, DEV.to, HackerNews, Keybase, Mastodon, and Gravatar, then runs DNS and WHOIS analysis on any linked domain. The result is a structured privacy report with a visibility score, detected exposure risks, and recommended actions — plus three different lenses on the same data:
+Scans GitHub, GitLab, DEV.to, HackerNews, Keybase, Mastodon, and Gravatar concurrently, then does DNS + WHOIS on any linked domain. Generates a visibility score and surfaces exposure risks — then shows the same data from three different angles:
 
-- **Recruiter view** — how the profile reads to a hiring manager
-- **Advertiser view** — what ad networks can infer from public signals
-- **Threat Actor view** — realistic attack vectors with [MITRE ATT&CK](https://attack.mitre.org/tactics/TA0043/) technique mapping
+- **Recruiter** — professional presence, activity signals
+- **Advertiser** — what can be inferred about you from public data
+- **Threat Actor** — realistic attack vectors mapped to [MITRE ATT&CK](https://attack.mitre.org/tactics/TA0043/) techniques
 
-Two scan modes: **Quick** (3 platforms, ~5s) and **Deep** (7 platforms + DNS/WHOIS, ~15s).
+Two modes: **Quick Scan** (GitHub + Keybase + Gravatar, ~5s) and **Deep Scan** (everything + DNS/WHOIS, ~15s).
 
 ---
 
 ## Stack
 
-**Frontend** — React 18, Vite 5, vanilla CSS (no component library)
+**Frontend** — React 18, Vite 5, vanilla CSS
 
-**Backend** — FastAPI, async OSINT via `httpx`, DNS via `dnspython`, WHOIS via `python-whois`
+**Backend** — FastAPI + `httpx` for async requests, `dnspython` for DNS lookups, `python-whois` in a thread executor so it doesn't block the event loop
 
-All 7 platform checks run concurrently with `asyncio.gather`. WHOIS runs in a thread executor to avoid blocking the event loop.
+All platform checks run concurrently via `asyncio.gather`.
 
 ---
 
 ## Running locally
 
 ```bash
-# Backend
-cd backend
-.venv/bin/uvicorn app.main:app --reload
+# backend
+cd backend && .venv/bin/uvicorn app.main:app --reload
 
-# Frontend (separate terminal)
-cd frontend
-npm install && npm run dev
+# frontend
+cd frontend && npm install && npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`. The Vite dev server proxies `/api/*` to the backend at `http://localhost:8000`.
+Vite proxies `/api/*` to `localhost:8000`.
 
 ---
 
-## Deployment
+## Deploy
 
-Backend is configured for [Render](https://render.com) via `render.yaml`. Frontend deploys to [Vercel](https://vercel.com) from the `frontend/` directory — `vercel.json` rewrites `/api/*` to the Render service.
+Backend → [Render](https://render.com) (configured via `render.yaml`)  
+Frontend → [Vercel](https://vercel.com) (set root directory to `frontend/`)
 
-After deploying the backend, update the destination URL in `frontend/vercel.json` to match your Render service URL, then push to deploy Vercel.
+Update the Render URL in `frontend/vercel.json` before deploying Vercel.
 
 ---
 
