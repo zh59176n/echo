@@ -1,139 +1,55 @@
 # Echo
 
-Echo is a cybersecurity and digital privacy awareness platform that helps users understand their online visibility through an interactive risk assessment dashboard.
+A privacy intelligence tool that scans someone's public digital footprint and shows what recruiters, advertisers, and threat actors can discover about them.
 
-The project simulates how different audiences—including recruiters, advertisers, and threat actors—might view a user's public online footprint and provides personalized recommendations to improve privacy and reduce exposure.
-
----
-
-## Overview
-
-Echo analyzes a username or online identity and generates a visibility report containing:
-
-* Visibility Score (0–100)
-* Public Signals Analysis
-* Exposure Risk Assessment
-* Privacy Recommendations
-* Audience-Specific Perspectives
-
-The goal is to make privacy risks easier to understand through clear visualizations and an engaging user experience.
+**[Live Demo →](https://echo-privacy.vercel.app)**
 
 ---
 
-## Features
+## What it does
 
-### Interactive Landing Experience
+Enter a username and email. Echo concurrently queries GitHub, GitLab, DEV.to, HackerNews, Keybase, Mastodon, and Gravatar, then runs DNS and WHOIS analysis on any linked domain. The result is a structured privacy report with a visibility score, detected exposure risks, and recommended actions — plus three different lenses on the same data:
 
-* Glassmorphism-inspired interface
-* Animated starfield background
-* Multi-stage scan launch sequence
-* Responsive design
+- **Recruiter view** — how the profile reads to a hiring manager
+- **Advertiser view** — what ad networks can infer from public signals
+- **Threat Actor view** — realistic attack vectors with [MITRE ATT&CK](https://attack.mitre.org/tactics/TA0043/) technique mapping
 
-### Visibility Dashboard
-
-* Dynamic visibility score generation
-* Animated orbital score visualization
-* Public signal indicators
-* Exposure risk analysis
-* Actionable recommendations
-
-### Perspective-Based Analysis
-
-Echo provides three viewpoints:
-
-#### Recruiter View
-
-Highlights information that may influence hiring decisions.
-
-#### Advertiser View
-
-Shows how publicly available information may be used for targeting and profiling.
-
-#### Threat Actor View
-
-Demonstrates potential information gathering opportunities available through public exposure.
-
-### User Experience Enhancements
-
-* Page transition animations
-* Animated score ring visualization
-* Progress tracking during scans
-* Interactive dashboard cards
-* Hover and focus micro-interactions
-* Mobile-friendly layout
+Two scan modes: **Quick** (3 platforms, ~5s) and **Deep** (7 platforms + DNS/WHOIS, ~15s).
 
 ---
 
-## Technology Stack
+## Stack
 
-### Frontend
+**Frontend** — React 18, Vite 5, vanilla CSS (no component library)
 
-* React
-* Vite
-* JavaScript
-* CSS3
+**Backend** — FastAPI, async OSINT via `httpx`, DNS via `dnspython`, WHOIS via `python-whois`
 
-### Backend
-
-* FastAPI
-* Pydantic
-
-### Development Tools
-
-* Git
-* GitHub
-* npm
+All 7 platform checks run concurrently with `asyncio.gather`. WHOIS runs in a thread executor to avoid blocking the event loop.
 
 ---
 
-## Architecture
+## Running locally
 
-Frontend (React)
-↓
-API Requests
-↓
-FastAPI Backend
-↓
-Score Generation & Risk Analysis
-↓
-Visibility Report Response
-↓
-Dashboard Visualization
+```bash
+# Backend
+cd backend
+.venv/bin/uvicorn app.main:app --reload
 
----
+# Frontend (separate terminal)
+cd frontend
+npm install && npm run dev
+```
 
-## Current Status
-
-This project is currently an MVP (Minimum Viable Product) focused on user experience, visualization, and privacy awareness concepts.
-
-Current report generation uses deterministic mock data based on user input to simulate visibility analysis.
+Frontend runs at `http://localhost:5173`. The Vite dev server proxies `/api/*` to the backend at `http://localhost:8000`.
 
 ---
 
-## Planned Enhancements
+## Deployment
 
-* Report history and scan analytics
-* MITRE ATT&CK technique mapping
-* PDF report exports
-* Historical report comparisons
-* Real breach intelligence integrations
-* Username availability scanning
-* Domain and DNS security analysis
-* User authentication and saved reports
+Backend is configured for [Render](https://render.com) via `render.yaml`. Frontend deploys to [Vercel](https://vercel.com) from the `frontend/` directory — `vercel.json` rewrites `/api/*` to the Render service.
+
+After deploying the backend, update the destination URL in `frontend/vercel.json` to match your Render service URL, then push to deploy Vercel.
 
 ---
 
-## Motivation
-
-Digital footprints are often difficult for users to understand. Echo aims to make privacy and exposure risks more accessible through visualization, storytelling, and actionable recommendations.
-
-The project combines cybersecurity concepts with modern frontend engineering to create an engaging educational experience.
-
----
-
-## Author
-
-Zara Hameedi
-
-B.S. Computer Science
-Pace University
+Zara Hameedi — B.S. Computer Science, Pace University
