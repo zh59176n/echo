@@ -36,9 +36,11 @@ app.add_middleware(
 # ─── Request model ────────────────────────────────────────────────────────────
 
 class ReportRequest(BaseModel):
-    username: str
-    email: str
-    website: Optional[str] = None
+    username:  Optional[str] = None
+    full_name: Optional[str] = None
+    email:     Optional[str] = None
+    scan_mode: str           = "quick"
+    website:   Optional[str] = None
 
 
 # ─── Platform scanners ────────────────────────────────────────────────────────
@@ -605,7 +607,7 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
     elif gh.get("found"):
         threat_sigs.append({"label": "GitHub profile found — public activity visible", "sentiment": "warning"})
     if n >= 2:
-        threat_sigs.append({"label": f"Username '{username}' consistent across {n} platforms — trivial to cross-link", "sentiment": "danger"})
+        threat_sigs.append({"label": f"'{username}' found across {n} platforms — identity correlation requires no special tools", "sentiment": "danger"})
     if gh.get("found"):
         threat_sigs.append({"label": "Public repos may expose employer, tech stack, project context", "sentiment": "warning"})
     if kb.get("found"):
@@ -633,7 +635,7 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
         )
     else:
         has_email_risk = gh.get("found") and gh.get("email_public")
-        threat_headline = f"Moderate exposure — {'email + ' if has_email_risk else ''}username are primary attack vectors"
+        threat_headline = f"Moderate exposure — {'email and ' if has_email_risk else ''}identity linkable across {n} platform{'s' if n != 1 else ''}"
         threat_summary = (
             f"A threat actor can cross-reference '{username}' across {n} platform{'s' if n != 1 else ''} in minutes. "
             + (f"The public GitHub email significantly elevates phishing risk. " if has_email_risk else "")
@@ -651,31 +653,43 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
 
 @app.post("/report")
 async def report(payload: ReportRequest):
-    username = payload.username.strip()
-    email = payload.email.strip()
+    username    = (payload.username  or "").strip()
+    email       = (payload.email     or "").strip()
+    full_name   = (payload.full_name or "").strip()
+    scan_mode   = payload.scan_mode  or "quick"
     site_domain = _extract_domain(payload.website or "")
-    email_dom = _email_domain(email)
-    check_domain = site_domain or email_dom  # prefer website domain; fall back to email domain for DNS
+    email_dom   = _email_domain(email) if email else None
+    check_domain = site_domain or email_dom
+
+    async def _skip():
+        return {"found": False}
+
+    async def _no_dns():
+        return {}
 
     async with httpx.AsyncClient() as client:
-        # All 7 platform checks + DNS run fully concurrently
-        gh_task  = scan_github(username, client)
-        gl_task  = scan_gitlab(username, client)
-        dt_task  = scan_devto(username, client)
-        hn_task  = scan_hackernews(username, client)
-        kb_task  = scan_keybase(username, client)
-        ms_task  = scan_mastodon(username, client)
-        gv_task  = scan_gravatar(email, client)
-        async def _no_dns():
-            return {}
-        dns_task = analyze_dns(check_domain) if check_domain else _no_dns()
+        if scan_mode == "quick":
+            gh, kb, gv = await asyncio.gather(
+                scan_github(username, client)  if username else _skip(),
+                scan_keybase(username, client) if username else _skip(),
+                scan_gravatar(email, client)   if email    else _skip(),
+                return_exceptions=True,
+            )
+            gl = dt = hn = ms = {"found": False}
+            dns_info = {}
+        else:
+            gh, gl, dt, hn, kb, ms, gv, dns_info = await asyncio.gather(
+                scan_github(username, client)     if username else _skip(),
+                scan_gitlab(username, client)     if username else _skip(),
+                scan_devto(username, client)      if username else _skip(),
+                scan_hackernews(username, client) if username else _skip(),
+                scan_keybase(username, client)    if username else _skip(),
+                scan_mastodon(username, client)   if username else _skip(),
+                scan_gravatar(email, client)      if email    else _skip(),
+                analyze_dns(check_domain) if check_domain else _no_dns(),
+                return_exceptions=True,
+            )
 
-        gh, gl, dt, hn, kb, ms, gv, dns_info = await asyncio.gather(
-            gh_task, gl_task, dt_task, hn_task, kb_task, ms_task, gv_task, dns_task,
-            return_exceptions=True,
-        )
-
-    # Unwrap any exceptions → safe empty dicts
     def _safe(v):
         return v if isinstance(v, dict) else {"found": False, "error": True}
 
@@ -693,24 +707,44 @@ async def report(payload: ReportRequest):
         "hackernews": hn, "keybase": kb, "mastodon": ms, "gravatar": gv,
     }
 
-    # WHOIS is synchronous — run in executor after async phase
-    whois_info = await analyze_whois(check_domain) if check_domain else {}
+    # WHOIS only in deep scan
+    whois_info = (await analyze_whois(check_domain)) if (scan_mode == "deep" and check_domain) else {}
 
-    # Build all report components from real data
-    risks   = build_risks(username, platforms, dns_info, whois_info, site_domain)
+    display_name = username or full_name
+    risks   = build_risks(display_name, platforms, dns_info, whois_info, site_domain)
     actions = build_actions(risks)
     score   = compute_score(platforms, dns_info, gh.get("email_public", False), gv.get("found", False))
-    signals = build_signals(platforms, dns_info, whois_info, site_domain)
-    views   = build_views(username, email, platforms, dns_info, whois_info, site_domain)
+    all_signals = build_signals(platforms, dns_info, whois_info, site_domain)
+    # For quick scan, only surface signals for platforms actually checked
+    if scan_mode == "quick":
+        checked = {"github", "keybase", "gravatar"}
+        signals = [s for s in all_signals if s["id"] in checked]
+    else:
+        signals = all_signals
+
+    all_views = build_views(display_name, email, platforms, dns_info, whois_info, site_domain)
+    if scan_mode == "quick":
+        # Recruiter and advertiser views require the full platform profile
+        views = {"recruiter": None, "advertiser": None, "threat": all_views["threat"]}
+    else:
+        views = all_views
+
+    platforms_checked = (
+        ["github", "keybase", "gravatar"]
+        if scan_mode == "quick"
+        else ["github", "gitlab", "devto", "hackernews", "keybase", "mastodon", "gravatar"]
+    )
 
     return {
         "username":            username,
+        "full_name":           full_name,
         "email":               email,
         "website":             payload.website,
+        "scan_mode":           scan_mode,
         "visibility_score":    score,
         "scan_meta": {
-            "platforms_checked": ["github", "gitlab", "devto", "hackernews", "keybase", "mastodon", "gravatar"],
-            "domain_checked":    check_domain,
+            "platforms_checked": platforms_checked,
+            "domain_checked":    check_domain if scan_mode == "deep" else None,
             "scanned_at":        datetime.now(timezone.utc).isoformat(),
         },
         "public_signals":      signals,

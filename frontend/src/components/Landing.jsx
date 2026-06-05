@@ -1,80 +1,101 @@
 import React, { useState } from 'react'
 
-const SCAN_STEPS = [
-  { emoji: '🚀', label: 'Launching analysis' },
-  { emoji: '🛰️', label: 'Scanning GitHub, GitLab, DEV.to…' },
-  { emoji: '🔭', label: 'Checking Keybase, Mastodon, HN…' },
-  { emoji: '✨', label: 'Analyzing domain & DNS records' },
-]
+const SCAN_STEPS = {
+  quick: [
+    { emoji: '⚡', label: 'Launching quick scan' },
+    { emoji: '🔍', label: 'Checking GitHub, Keybase, Gravatar…' },
+  ],
+  deep: [
+    { emoji: '🚀', label: 'Launching analysis' },
+    { emoji: '🛰️', label: 'Scanning GitHub, GitLab, DEV.to…' },
+    { emoji: '🔭', label: 'Checking Keybase, Mastodon, HN…' },
+    { emoji: '✨', label: 'Analyzing domain & DNS records' },
+  ],
+}
 
-const STEP_DURATIONS = [1000, 1400, 1400, 1100]
+const STEP_DURATIONS = {
+  quick: [800, 1800],
+  deep:  [1000, 1400, 1400, 1100],
+}
 
-function buildClientMock(username, email, website) {
-  return {
+function buildClientMock(scanMode, username, email, website, fullName) {
+  const name = username || fullName || 'you'
+  const base = {
     username,
+    full_name: fullName,
     email,
     website,
-    visibility_score: 72,
-    public_signals: [
-      { id: 'github',       label: 'GitHub profile detected',          icon: '⌨️', detected: true },
-      { id: 'linkedin',     label: 'LinkedIn profile detected',        icon: '💼', detected: true },
-      { id: 'twitter',      label: 'Twitter/X activity found',         icon: '🐦', detected: true },
-      { id: 'email_exp',    label: 'Email found in 3 public sources',  icon: '📧', detected: true },
-      { id: 'data_broker',  label: 'Listed on 2 data broker sites',    icon: '🗃️', detected: true },
-      { id: 'dark_web',     label: 'No dark web exposure detected',    icon: '🛡️', detected: false },
-    ],
+    scan_mode: scanMode,
+    visibility_score: scanMode === 'quick' ? 54 : 72,
+    public_signals: scanMode === 'quick'
+      ? [
+          { id: 'github',   label: 'GitHub — no profile found',              icon: '⌨️', detected: false },
+          { id: 'keybase',  label: 'Keybase — no account found',             icon: '🔑', detected: false },
+          { id: 'gravatar', label: 'Gravatar — email not linked',            icon: '🌐', detected: false },
+        ]
+      : [
+          { id: 'github',      label: 'GitHub profile detected',             icon: '⌨️', detected: true  },
+          { id: 'gitlab',      label: 'GitLab — no profile found',           icon: '🦊', detected: false },
+          { id: 'devto',       label: 'DEV.to — no account found',           icon: '👩‍💻', detected: false },
+          { id: 'hackernews',  label: 'HackerNews — no account found',       icon: '🟠', detected: false },
+          { id: 'keybase',     label: 'Keybase — no account found',          icon: '🔑', detected: false },
+          { id: 'mastodon',    label: 'Mastodon — no account found',         icon: '🐘', detected: false },
+          { id: 'gravatar',    label: 'Gravatar — email not linked',         icon: '🌐', detected: false },
+        ],
     exposure_risks: [
-      { id: 'email',        title: 'Public email address visible',      description: `The email ${email} appears on GitHub and public forums`,                              severity: 'high'   },
-      { id: 'username',     title: 'Username linked across platforms',  description: `Username "${username}" found on 4 platforms, enabling cross-profiling`,              severity: 'medium' },
-      { id: 'activity',     title: 'Activity patterns visible',         description: 'Public timestamps reveal your typical timezone and active hours',                    severity: 'low'    },
-      { id: 'broker',       title: 'Listed on data broker sites',       description: 'Personal information aggregated by 2 data brokers',                                  severity: 'medium' },
+      { id: 'cross_platform', title: 'Username found across platforms',     description: `"${name}" is detectable on multiple platforms.`,            severity: 'medium' },
+      { id: 'no_spf',         title: 'No SPF record — domain is spoofable', description: 'Without SPF, anyone can send email from your domain.',      severity: 'medium' },
     ],
     recommended_actions: [
-      { id: 'email',    title: 'Remove public email from GitHub profile',               priority: 'high'   },
-      { id: 'broker',   title: 'Submit opt-out requests to data brokers',               priority: 'high'   },
-      { id: 'review',   title: 'Review privacy settings on all social platforms',       priority: 'medium' },
-      { id: 'username', title: 'Consider using different usernames per platform',       priority: 'medium' },
-      { id: 'audit',    title: 'Audit and archive old public posts',                    priority: 'low'    },
+      { id: 'hibp',          title: 'Check your email on HaveIBeenPwned',                priority: 'high'   },
+      { id: 'privacy_audit', title: 'Audit privacy settings on all active platforms',    priority: 'medium' },
+      { id: 'data_brokers',  title: 'Submit opt-out requests to data broker sites',      priority: 'low'    },
     ],
+    scan_meta: {
+      platforms_checked: scanMode === 'quick' ? ['github', 'keybase', 'gravatar'] : ['github', 'gitlab', 'devto', 'hackernews', 'keybase', 'mastodon', 'gravatar'],
+      domain_checked: null,
+      scanned_at: new Date().toISOString(),
+    },
     views: {
-      recruiter: {
+      recruiter:  scanMode === 'deep' ? {
         headline: 'Strong professional presence with minor exposure concerns',
         signals: [
-          { label: 'Active GitHub with public contributions',            sentiment: 'positive' },
-          { label: 'LinkedIn profile publicly accessible',               sentiment: 'positive' },
-          { label: 'Technical writing or blog activity found',           sentiment: 'positive' },
-          { label: 'Professional email domain confirmed',                sentiment: 'positive' },
-          { label: 'No controversial public content detected',           sentiment: 'positive' },
-          { label: 'Activity suggests full-time professional schedule',  sentiment: 'neutral'  },
+          { label: 'Active GitHub with public contributions',           sentiment: 'positive' },
+          { label: 'LinkedIn profile publicly accessible',              sentiment: 'positive' },
+          { label: 'Technical writing or blog activity found',          sentiment: 'positive' },
+          { label: 'Professional email domain confirmed',               sentiment: 'positive' },
+          { label: 'No controversial public content detected',          sentiment: 'positive' },
+          { label: 'Activity suggests full-time professional schedule', sentiment: 'neutral'  },
         ],
-        summary: `A recruiter would form a strong positive first impression of ${username}. Professional profiles are visible and well-maintained. The public email exposure is a minor concern but unlikely to affect professional perception.`,
-      },
-      advertiser: {
+        summary: `A recruiter would form a strong positive first impression of ${name}.`,
+      } : null,
+      advertiser: scanMode === 'deep' ? {
         headline: 'High-value targeting profile with inferred tech-sector interests',
         signals: [
-          { label: 'Inferred interests: software, technology, design',               sentiment: 'neutral'  },
-          { label: 'Estimated income bracket: Mid-to-Senior tech professional',      sentiment: 'neutral'  },
-          { label: 'Platform engagement: GitHub, LinkedIn, Twitter/X',               sentiment: 'neutral'  },
-          { label: 'Likely B2B software purchaser',                                  sentiment: 'neutral'  },
-          { label: 'Geographic signals inferrable from activity',                    sentiment: 'warning'  },
-          { label: 'Retargetable across 3+ ad networks',                             sentiment: 'warning'  },
+          { label: 'Inferred interests: software, technology, design',            sentiment: 'neutral'  },
+          { label: 'Estimated income bracket: Mid-to-Senior tech professional',   sentiment: 'neutral'  },
+          { label: 'Platform engagement: GitHub, LinkedIn, Twitter/X',            sentiment: 'neutral'  },
+          { label: 'Likely B2B software purchaser',                               sentiment: 'neutral'  },
+          { label: 'Geographic signals inferrable from activity',                 sentiment: 'warning'  },
+          { label: 'Retargetable across 3+ ad networks',                          sentiment: 'warning'  },
         ],
-        summary: `The public digital presence of ${username} creates a detailed advertiser profile. Marketers can infer occupation, interests, income level, and device usage from publicly available signals — without any direct ad interaction.`,
-      },
+        summary: `The public presence of ${name} creates a detailed advertiser profile.`,
+      } : null,
       threat: {
-        headline: 'Moderate social engineering risk — email and username are key vectors',
+        headline: 'Moderate exposure — email and username are primary attack vectors',
         signals: [
-          { label: `Email ${email} confirmed on 3 public sources`,                   sentiment: 'danger'   },
-          { label: `Username "${username}" consistent across 4 platforms`,            sentiment: 'danger'   },
-          { label: 'Public repos may reveal employer or current projects',            sentiment: 'warning'  },
-          { label: 'Activity timing reveals likely timezone',                         sentiment: 'warning'  },
-          { label: 'No password breach data found',                                  sentiment: 'positive' },
-          { label: 'Account recovery routes partially visible',                      sentiment: 'warning'  },
+          { label: `Email ${email || 'address'} may be harvestable from public sources`,  sentiment: 'warning'  },
+          { label: `Username "${name}" searchable across developer platforms`,             sentiment: 'warning'  },
+          { label: 'Public repos may reveal employer or current projects',                 sentiment: 'warning'  },
+          { label: 'Activity timing reveals likely timezone',                              sentiment: 'warning'  },
+          { label: 'No password breach data found',                                        sentiment: 'positive' },
+          { label: 'Account recovery routes partially visible',                            sentiment: 'warning'  },
         ],
-        summary: `The exposed email and consistent username for ${username} create targetable attack vectors for phishing and credential stuffing. Cross-platform linking allows a threat actor to build a detailed profile with minimal effort. No breach data found — this significantly reduces immediate risk.`,
+        summary: `The exposed email and username for ${name} create targetable vectors for phishing. No breach data was checked in this scan — run HaveIBeenPwned to complete the picture.`,
       },
     },
   }
+  return base
 }
 
 function delay(ms) {
@@ -82,66 +103,74 @@ function delay(ms) {
 }
 
 export default function Landing({ onGenerate }) {
-  const [username, setUsername] = useState('')
-  const [email, setEmail]       = useState('')
-  const [website, setWebsite]   = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [step, setStep]         = useState(-1)
-  const [error, setError]       = useState('')
+  const [scanMode, setScanMode]   = useState('quick')
+  const [username, setUsername]   = useState('')
+  const [fullName, setFullName]   = useState('')
+  const [email, setEmail]         = useState('')
+  const [website, setWebsite]     = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [step, setStep]           = useState(-1)
+  const [error, setError]         = useState('')
+
+  const steps     = SCAN_STEPS[scanMode]
+  const durations = STEP_DURATIONS[scanMode]
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!username.trim() || !email.trim()) {
-      setError('Username and email are required.')
+    if (scanMode === 'quick' && !username.trim()) {
+      setError('Username is required for Quick Scan.')
+      return
+    }
+    if (scanMode === 'deep' && !fullName.trim()) {
+      setError('Full name is required for Deep Scan.')
       return
     }
     setError('')
     setLoading(true)
     setStep(0)
 
-    // Fire the real API request immediately — don't wait for animation
     const fetchPromise = (async () => {
       try {
         const resp = await fetch('/api/report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, website }),
-          signal: AbortSignal.timeout(14000), // real scans can take ~8s
+          body: JSON.stringify({
+            username: username.trim() || undefined,
+            full_name: fullName.trim() || undefined,
+            email: email.trim() || undefined,
+            website: website.trim() || undefined,
+            scan_mode: scanMode,
+          }),
+          signal: AbortSignal.timeout(scanMode === 'quick' ? 8000 : 16000),
         })
         if (!resp.ok) throw new Error('api_error')
         const data = await resp.json()
-        // Merge: backend data wins over client mock for matching keys
-        return { ...buildClientMock(username, email, website), ...data }
+        return { ...buildClientMock(scanMode, username, email, website, fullName), ...data }
       } catch {
-        return buildClientMock(username, email, website)
+        return buildClientMock(scanMode, username, email, website, fullName)
       }
     })()
 
-    // Animate steps concurrently — always plays at full speed regardless of API timing
     const animPromise = (async () => {
-      for (let i = 0; i < SCAN_STEPS.length; i++) {
-        await delay(STEP_DURATIONS[i])
+      for (let i = 0; i < steps.length; i++) {
+        await delay(durations[i])
         setStep(i + 1)
       }
     })()
 
-    // Both must finish before proceeding — animation always plays in full,
-    // fetch either finishes during the animation or we wait for it after
     const [data] = await Promise.all([fetchPromise, animPromise])
-
-    await delay(300) // brief moment showing all steps completed
+    await delay(300)
     onGenerate(data)
     setLoading(false)
     setStep(-1)
   }
 
-  const progress = step <= 0 ? 0 : Math.round((step / SCAN_STEPS.length) * 100)
+  const progress = step <= 0 ? 0 : Math.round((step / steps.length) * 100)
 
   return (
     <div className="landing">
       {loading && (
         <div className="loading-overlay">
-          {/* Pulsing orbital rings */}
           <div className="lo-orbit-wrap">
             <div className="lo-pulse-ring" />
             <div className="lo-pulse-ring lo-pulse-ring--2" />
@@ -151,13 +180,12 @@ export default function Landing({ onGenerate }) {
             </div>
           </div>
 
-          {/* Content */}
           <div className="lo-content">
             <div className="lo-title">Scanning digital footprint</div>
-            <div className="lo-sub">{email || username}</div>
+            <div className="lo-sub">{email || username || fullName}</div>
 
             <div className="lo-steps">
-              {SCAN_STEPS.map((s, i) => (
+              {steps.map((s, i) => (
                 <div
                   key={i}
                   className={[
@@ -167,9 +195,7 @@ export default function Landing({ onGenerate }) {
                     step >= i  ? 'lo-vis'    : '',
                   ].filter(Boolean).join(' ')}
                 >
-                  <span className="lo-step-icon">
-                    {step > i ? '✓' : s.emoji}
-                  </span>
+                  <span className="lo-step-icon">{step > i ? '✓' : s.emoji}</span>
                   <span className="lo-step-label">{s.label}</span>
                 </div>
               ))}
@@ -210,12 +236,52 @@ export default function Landing({ onGenerate }) {
 
       <div className="form-card">
         <div className="form-card-title">Generate your Visibility Report</div>
-        <div className="form-card-sub">Enter your details to see your digital exposure.</div>
+        <div className="form-card-sub">Choose a scan mode, then enter your details.</div>
+
+        {/* Scan mode toggle */}
+        <div className="scan-mode-toggle" role="group" aria-label="Scan mode">
+          <button
+            type="button"
+            className={`scan-mode-btn ${scanMode === 'quick' ? 'active' : ''}`}
+            onClick={() => { setScanMode('quick'); setError('') }}
+            aria-pressed={scanMode === 'quick'}
+          >
+            ⚡ Quick Scan
+          </button>
+          <button
+            type="button"
+            className={`scan-mode-btn ${scanMode === 'deep' ? 'active' : ''}`}
+            onClick={() => { setScanMode('deep'); setError('') }}
+            aria-pressed={scanMode === 'deep'}
+          >
+            🔭 Deep Scan
+          </button>
+        </div>
+        <div className="scan-mode-desc">
+          {scanMode === 'quick'
+            ? '3 platforms · ~5 seconds · Threat overview'
+            : '7 platforms + DNS · ~15 seconds · Full professional assessment + MITRE ATT&CK'}
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
+            {scanMode === 'deep' && (
+              <div className="field">
+                <label htmlFor="fullname">Full name</label>
+                <input
+                  id="fullname"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. Alex Johnson"
+                  autoComplete="name"
+                />
+              </div>
+            )}
+
             <div className="field">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="username">
+                Username {scanMode === 'deep' && <span className="field-optional">optional</span>}
+              </label>
               <input
                 id="username"
                 value={username}
@@ -224,8 +290,11 @@ export default function Landing({ onGenerate }) {
                 autoComplete="username"
               />
             </div>
+
             <div className="field">
-              <label htmlFor="email">Email address</label>
+              <label htmlFor="email">
+                Email address <span className="field-optional">optional</span>
+              </label>
               <input
                 id="email"
                 type="email"
@@ -235,25 +304,28 @@ export default function Landing({ onGenerate }) {
                 autoComplete="email"
               />
             </div>
-            <div className="field">
-              <label htmlFor="website">
-                Website <span className="field-optional">optional</span>
-              </label>
-              <input
-                id="website"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://yoursite.com"
-                autoComplete="url"
-              />
-            </div>
+
+            {scanMode === 'deep' && (
+              <div className="field">
+                <label htmlFor="website">
+                  Website <span className="field-optional">optional</span>
+                </label>
+                <input
+                  id="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://yoursite.com"
+                  autoComplete="url"
+                />
+              </div>
+            )}
           </div>
 
           {error && <div className="form-error">{error}</div>}
 
           <button className="btn-primary" type="submit" disabled={loading}>
             <span className="btn-shimmer" />
-            {loading ? 'Scanning…' : 'Generate Visibility Report →'}
+            {loading ? 'Scanning…' : `Generate ${scanMode === 'quick' ? 'Quick' : 'Deep'} Scan Report →`}
           </button>
         </form>
       </div>

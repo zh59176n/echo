@@ -317,8 +317,8 @@ function formatScanTime(iso) {
 }
 
 export default function Dashboard({ report, onBack }) {
-  const [activeView, setActiveView] = useState('recruiter')
   const data = report
+  const [activeView, setActiveView] = useState(data.scan_mode === 'quick' ? 'threat' : 'recruiter')
   const { title, desc } = scoreInfo(data.visibility_score)
   const viewData = data.views?.[activeView]
   const meta = data.scan_meta
@@ -333,15 +333,22 @@ export default function Dashboard({ report, onBack }) {
           <button className="btn-back" onClick={onBack}>← New report</button>
         </div>
         <div className="view-tabs">
-          {Object.entries(VIEW_CONFIG).map(([key, cfg]) => (
-            <button
-              key={key}
-              className={`view-tab ${activeView === key ? 'active' : ''}`}
-              onClick={() => setActiveView(key)}
-            >
-              {cfg.icon} {cfg.label}
-            </button>
-          ))}
+          {Object.entries(VIEW_CONFIG).map(([key, cfg]) => {
+            const locked = data.scan_mode === 'quick' && key !== 'threat'
+            return (
+              <button
+                key={key}
+                className={`view-tab ${activeView === key ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                onClick={() => !locked && setActiveView(key)}
+                title={locked ? 'Run a Deep Scan to unlock this view' : undefined}
+                aria-disabled={locked}
+                tabIndex={locked ? -1 : undefined}
+              >
+                {cfg.icon} {cfg.label}
+                {locked && <span className="view-tab-lock" aria-hidden="true">🔒</span>}
+              </button>
+            )
+          })}
         </div>
       </nav>
 
@@ -353,11 +360,16 @@ export default function Dashboard({ report, onBack }) {
           </div>
           <div className="score-details">
             <div className="score-eyebrow">Visibility Score</div>
+            <div className={`scan-mode-badge ${data.scan_mode || 'quick'}`}>
+              {data.scan_mode === 'deep' ? '🔭 Deep Scan' : '⚡ Quick Scan'}
+            </div>
             <div className="score-title">{title}</div>
             <div className="score-desc">{desc}</div>
             <div className="score-meta">
-              <span className="score-meta-item">👤 {data.username}</span>
-              <span className="score-meta-item">📧 {data.email}</span>
+              {(data.full_name || data.username) && (
+                <span className="score-meta-item">👤 {data.full_name || data.username}</span>
+              )}
+              {data.email && <span className="score-meta-item">📧 {data.email}</span>}
               {data.website && <span className="score-meta-item">🌐 {data.website}</span>}
             </div>
             {(platformCount || scanTime) && (
@@ -440,8 +452,8 @@ export default function Dashboard({ report, onBack }) {
           </div>
         )}
 
-        {/* ATT&CK card — only shown in Threat Actor view */}
-        {activeView === 'threat' && <AttackCard report={data} />}
+        {/* ATT&CK card — only shown in Threat Actor view of a Deep Scan */}
+        {activeView === 'threat' && data.scan_mode === 'deep' && <AttackCard report={data} />}
       </div>
     </div>
   )

@@ -978,6 +978,100 @@ body::before {
 }
 
 /* ======================================
+   Scan Mode Toggle (Landing)
+   ====================================== */
+
+.scan-mode-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.scan-mode-btn {
+  flex: 1;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  white-space: nowrap;
+}
+
+.scan-mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-2);
+}
+
+.scan-mode-btn.active {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.scan-mode-desc {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 22px;
+  line-height: 1.4;
+}
+
+/* Scan Mode Badge (Dashboard) */
+
+.scan-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+.scan-mode-badge.quick {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.scan-mode-badge.deep {
+  color: var(--indigo);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* Locked view tabs */
+
+.view-tab.locked {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.view-tab.locked:hover {
+  background: transparent;
+  color: var(--muted);
+  transform: none;
+}
+
+.view-tab-lock {
+  font-size: 10px;
+  margin-left: 5px;
+}
+
+/* ======================================
    MITRE ATT&CK Card
    ====================================== */
 
