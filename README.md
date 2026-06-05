@@ -4,6 +4,16 @@ A privacy intelligence tool that scans someone's public digital footprint and sh
 
 **[Live Demo →](https://echo-psi-six.vercel.app)**
 
+![Echo Dashboard](screenshots/dashboard.png)
+
+<details>
+<summary>More screenshots</summary>
+
+![Landing page](screenshots/landing.png)
+![Threat Actor view with MITRE ATT&CK mapping](screenshots/threat-view.png)
+
+</details>
+
 ---
 
 ## What it does
