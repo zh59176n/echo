@@ -316,14 +316,19 @@ function formatScanTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatPrintDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
 export default function Dashboard({ report, onBack }) {
   const data = report
   const [activeView, setActiveView] = useState(data.scan_mode === 'quick' ? 'threat' : 'recruiter')
   const { title, desc } = scoreInfo(data.visibility_score)
-  const viewData = data.views?.[activeView]
   const meta = data.scan_meta
   const platformCount = meta?.platforms_checked?.length ?? null
   const scanTime = formatScanTime(meta?.scanned_at)
+  const printSubject = data.full_name || data.username || ''
 
   return (
     <div className="dashboard">
@@ -331,6 +336,7 @@ export default function Dashboard({ report, onBack }) {
         <div className="dash-nav-left">
           <div className="nav-logo">Echo</div>
           <button className="btn-back" onClick={onBack}>← New report</button>
+          <button className="btn-print" onClick={() => window.print()}>↓ Export PDF</button>
         </div>
         <div className="view-tabs">
           {Object.entries(VIEW_CONFIG).map(([key, cfg]) => {
@@ -351,6 +357,20 @@ export default function Dashboard({ report, onBack }) {
           })}
         </div>
       </nav>
+
+      <div className="print-header" aria-hidden="true">
+        <div className="print-header-top">
+          <span className="print-logo">Echo</span>
+          <span className="print-report-label">Visibility Report</span>
+        </div>
+        <div className="print-meta">
+          {printSubject && <span>Subject: {printSubject}</span>}
+          {data.email && <span>{data.email}</span>}
+          {data.website && <span>{data.website}</span>}
+          <span>Generated {formatPrintDate(meta?.scanned_at) || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span>{data.scan_mode === 'deep' ? 'Deep Scan' : 'Quick Scan'}{platformCount ? ` · ${platformCount} platforms` : ''}</span>
+        </div>
+      </div>
 
       <div className="dash-body">
         {/* Score hero */}
@@ -428,32 +448,44 @@ export default function Dashboard({ report, onBack }) {
           </div>
         </div>
 
-        {/* View panel — key forces re-animation on tab change */}
-        {viewData && (
-          <div key={activeView} className={`view-panel view-panel--${VIEW_CONFIG[activeView].theme} animate-in`} style={{ animationDelay: '0s' }}>
-            <div className="view-panel-header">
-              <div>
-                <div className="view-eyebrow">{VIEW_CONFIG[activeView].label}</div>
-                <div className="view-headline">{viewData.headline}</div>
-              </div>
-              <div className="view-icon">{VIEW_CONFIG[activeView].icon}</div>
-            </div>
-
-            <div className="view-signals-grid">
-              {(viewData.signals || []).map((s, i) => (
-                <div key={i} className="view-signal">
-                  <div className={`sig-indicator ${s.sentiment}`} />
-                  <span>{s.label}</span>
+        {/* View panels — active shown on screen, all shown in print */}
+        {Object.entries(VIEW_CONFIG).map(([key, cfg]) => {
+          const vd = data.views?.[key]
+          if (!vd) return null
+          const isActive = key === activeView
+          return (
+            <div
+              key={key}
+              className={`view-panel view-panel--${cfg.theme}${isActive ? ' animate-in' : ' view-panel--hidden'}`}
+              style={isActive ? { animationDelay: '0s' } : undefined}
+              aria-hidden={!isActive || undefined}
+            >
+              <div className="view-panel-header">
+                <div>
+                  <div className="view-eyebrow">{cfg.label}</div>
+                  <div className="view-headline">{vd.headline}</div>
                 </div>
-              ))}
+                <div className="view-icon">{cfg.icon}</div>
+              </div>
+              <div className="view-signals-grid">
+                {(vd.signals || []).map((s, i) => (
+                  <div key={i} className="view-signal">
+                    <div className={`sig-indicator ${s.sentiment}`} />
+                    <span>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="view-summary">{vd.summary}</div>
             </div>
+          )
+        })}
 
-            <div className="view-summary">{viewData.summary}</div>
+        {/* ATT&CK card — shown on screen in Threat view, always in print for deep scans */}
+        {data.scan_mode === 'deep' && (
+          <div className={activeView !== 'threat' ? 'print-only' : undefined}>
+            <AttackCard report={data} />
           </div>
         )}
-
-        {/* ATT&CK card — only shown in Threat Actor view of a Deep Scan */}
-        {activeView === 'threat' && data.scan_mode === 'deep' && <AttackCard report={data} />}
       </div>
     </div>
   )

@@ -1375,3 +1375,155 @@ body::before {
   .view-tab          { font-size: 11px; padding: 6px 4px; }
   .hero-title        { letter-spacing: -1.5px; }
 }
+
+/* ======================================
+   Print / PDF export
+   ====================================== */
+
+@page { margin: 18mm 14mm; size: A4 portrait; }
+
+.print-header      { display: none; }
+.view-panel--hidden { display: none; }
+.print-only         { display: none; }
+
+.btn-print {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-2);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.btn-print:hover {
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body { background: #fff !important; color: #111827 !important; }
+
+  /* Hide screen-only elements */
+  canvas,
+  body::before,
+  .dash-nav,
+  .animate-in     { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+  .dash-nav       { display: none !important; }
+  canvas          { display: none !important; }
+  body::before    { display: none !important; }
+
+  /* Show print-only elements */
+  .print-header        { display: flex !important; flex-direction: column; gap: 6px; padding-bottom: 14px; margin-bottom: 22px; border-bottom: 2px solid #c7d2fe; }
+  .view-panel--hidden  { display: block !important; }
+  .print-only          { display: block !important; }
+
+  .print-header-top {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .print-logo {
+    font-size: 20px;
+    font-weight: 800;
+    color: #4338ca;
+    letter-spacing: -0.5px;
+  }
+  .print-report-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .print-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 16px;
+    font-size: 12px;
+    color: #4b5563;
+  }
+
+  /* Container resets */
+  .dashboard, .dash-body { background: transparent !important; }
+  .dash-body { padding: 0 !important; }
+
+  /* Score hero */
+  .score-hero {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    flex-direction: row !important;
+    text-align: left !important;
+  }
+  .score-ring-wrap svg text           { fill: #111827 !important; }
+
+  /* Cards */
+  .card, .view-panel, .attack-card {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .cards-grid          { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .view-signals-grid   { grid-template-columns: 1fr !important; }
+
+  /* View panel colors */
+  .view-panel--recruiter  { background: #eef2ff !important; border-color: #c7d2fe !important; }
+  .view-panel--advertiser { background: #fffbeb !important; border-color: #fde68a !important; }
+  .view-panel--threat     { background: #fef2f2 !important; border-color: #fca5a5 !important; }
+
+  /* Risk items */
+  .risk-item.high   { background: #fef2f2 !important; border-color: #fca5a5 !important; }
+  .risk-item.medium { background: #fffbeb !important; border-color: #fde68a !important; }
+  .risk-item.low    { background: #f0fdf4 !important; border-color: #86efac !important; }
+
+  /* Text */
+  .score-title, .card-title, .risk-title, .action-title,
+  .view-headline, .view-eyebrow, .technique-name, .attack-card-title,
+  .score-eyebrow {
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    background: none !important;
+  }
+  .score-desc, .risk-desc, .view-summary, .scan-meta-bar,
+  .technique-desc, .technique-tactic, .attack-card-sub, .action-priority {
+    color: #4b5563 !important;
+  }
+  .score-meta-item { color: #374151 !important; }
+
+  /* Badges and indicators */
+  .scan-mode-badge        { color: #4338ca !important; background: #e0e7ff !important; border-color: #c7d2fe !important; }
+  .risk-badge.high        { background: #fee2e2 !important; color: #dc2626 !important; }
+  .risk-badge.medium      { background: #fef3c7 !important; color: #92400e !important; }
+  .risk-badge.low         { background: #d1fae5 !important; color: #065f46 !important; }
+  .signal-dot.found       { background: #16a34a !important; }
+  .signal-dot.absent      { background: #9ca3af !important; }
+  .action-num             { background: #e0e7ff !important; color: #4338ca !important; }
+  .action-priority.high   { color: #dc2626 !important; }
+  .action-priority.medium { color: #92400e !important; }
+  .action-priority.low    { color: #065f46 !important; }
+
+  /* ATT&CK */
+  .attack-technique        { border: 1px solid #e2e8f0 !important; background: #f8fafc !important; }
+  .attack-technique.high   { border-color: #fca5a5 !important; background: #fef2f2 !important; }
+  .attack-technique.medium { border-color: #fde68a !important; background: #fffbeb !important; }
+  .attack-technique.low    { border-color: #bbf7d0 !important; background: #f0fdf4 !important; }
+  .technique-severity.high   { color: #dc2626 !important; background: #fee2e2 !important; }
+  .technique-severity.medium { color: #92400e !important; background: #fef3c7 !important; }
+  .technique-severity.low    { color: #065f46 !important; background: #d1fae5 !important; }
+  .technique-id              { color: #4338ca !important; background: #e0e7ff !important; }
+  .attack-ref-link           { display: none !important; }
+
+  /* Page breaks */
+  .card, .view-panel, .attack-card, .attack-technique { page-break-inside: avoid; }
+  .view-panel { margin-top: 10px; }
+}
