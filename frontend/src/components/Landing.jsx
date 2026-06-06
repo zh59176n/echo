@@ -217,26 +217,26 @@ export default function Landing({ onGenerate }) {
       <section className="hero">
         <div className="hero-eyebrow">
           <span className="eyebrow-dot" />
-          Digital Privacy Intelligence
+          OSINT · Privacy Intelligence
         </div>
         <h1 className="hero-title">Echo</h1>
-        <p className="hero-tagline">🌌 See what the internet remembers.</p>
+        <p className="hero-tagline">See your public digital footprint.</p>
         <p className="hero-description">
-          Echo scans your public digital footprint and reveals exactly what recruiters,
-          advertisers, and threat actors can discover about you — in seconds.
+          Echo runs open-source intelligence checks on your public accounts and shows
+          what's visible to recruiters, advertisers, and threat actors.
         </p>
 
         <div className="feature-pills">
-          <span className="pill">🔍 Public profile scan</span>
-          <span className="pill">🛡️ Exposure risk analysis</span>
-          <span className="pill">🧭 Actionable guidance</span>
-          <span className="pill">👁️ Multi-perspective view</span>
+          <span className="pill">🔍 Platform scan</span>
+          <span className="pill">⚠️ Exposure risks</span>
+          <span className="pill">✓ Remediation steps</span>
+          <span className="pill">👁️ Three perspectives</span>
         </div>
       </section>
 
       <div className="form-card">
-        <div className="form-card-title">Generate your Visibility Report</div>
-        <div className="form-card-sub">Choose a scan mode, then enter your details.</div>
+        <div className="form-card-title">Run a visibility report</div>
+        <div className="form-card-sub">Pick a scan mode and enter your details.</div>
 
         {/* Scan mode toggle */}
         <div className="scan-mode-toggle" role="group" aria-label="Scan mode">

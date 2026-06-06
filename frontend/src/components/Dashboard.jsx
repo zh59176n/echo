@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 
 const VIEW_CONFIG = {
-  recruiter:  { label: 'Recruiter View',    icon: '👔' },
-  advertiser: { label: 'Advertiser View',   icon: '📢' },
-  threat:     { label: 'Threat Actor View', icon: '🎣' },
+  recruiter:  { label: 'Recruiter View',    icon: '👔', theme: 'recruiter'  },
+  advertiser: { label: 'Advertiser View',   icon: '📢', theme: 'advertiser' },
+  threat:     { label: 'Threat Actor View', icon: '🎣', theme: 'threat'     },
 }
 
 // Ease-out cubic count-up
@@ -155,10 +155,10 @@ function ScoreRing({ score }) {
 }
 
 function scoreInfo(score) {
-  if (score >= 80) return { title: 'Highly Visible',     desc: 'Your digital footprint is very extensive. Multiple platforms expose significant personal information about you.' }
-  if (score >= 60) return { title: 'Moderately Visible', desc: 'Your presence is detectable across several platforms. Some exposure risks warrant your attention.' }
-  if (score >= 40) return { title: 'Low Visibility',     desc: 'Your digital footprint is relatively contained. A few minor exposure points were detected.' }
-  return                  { title: 'Minimal Visibility', desc: 'Very limited public digital presence detected. Your overall privacy posture is strong.' }
+  if (score >= 80) return { title: 'Highly Visible',     desc: 'Active presence on multiple platforms with significant personal data publicly indexed.' }
+  if (score >= 60) return { title: 'Moderately Visible', desc: 'Found on several platforms. A few findings worth reviewing.' }
+  if (score >= 40) return { title: 'Low Visibility',     desc: 'Limited public footprint. A small number of exposure points detected.' }
+  return                  { title: 'Minimal Visibility', desc: 'Little to no public presence found across checked platforms.' }
 }
 
 function buildAttackMappings(report) {
@@ -338,7 +338,7 @@ export default function Dashboard({ report, onBack }) {
             return (
               <button
                 key={key}
-                className={`view-tab ${activeView === key ? 'active' : ''} ${locked ? 'locked' : ''}`}
+                className={`view-tab view-tab--${cfg.theme} ${activeView === key ? 'active' : ''} ${locked ? 'locked' : ''}`}
                 onClick={() => !locked && setActiveView(key)}
                 title={locked ? 'Run a Deep Scan to unlock this view' : undefined}
                 aria-disabled={locked}
@@ -430,7 +430,7 @@ export default function Dashboard({ report, onBack }) {
 
         {/* View panel — key forces re-animation on tab change */}
         {viewData && (
-          <div key={activeView} className="view-panel animate-in" style={{ animationDelay: '0s' }}>
+          <div key={activeView} className={`view-panel view-panel--${VIEW_CONFIG[activeView].theme} animate-in`} style={{ animationDelay: '0s' }}>
             <div className="view-panel-header">
               <div>
                 <div className="view-eyebrow">{VIEW_CONFIG[activeView].label}</div>
