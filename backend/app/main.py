@@ -489,7 +489,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "github_email",
             "title": "Email exposed on GitHub profile",
-            "description": "Your public GitHub email is harvested by scrapers and spam lists — a direct phishing vector.",
+            "description": "Public GitHub email gets scraped by spam lists and phishing tools.",
             "severity": "high",
         })
 
@@ -497,7 +497,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "gravatar_email",
             "title": "Email linked to a public Gravatar profile",
-            "description": "Your email address resolves to a public profile on Gravatar, exposing it to any service that checks the hash.",
+            "description": "Email resolves to a Gravatar profile. Any service that checks the MD5 hash can confirm the email is active.",
             "severity": "medium",
         })
 
@@ -505,8 +505,8 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         services = ", ".join(kb.get("proof_services", []))
         risks.append({
             "id": "keybase_proofs",
-            "title": f"Keybase identity proofs link accounts publicly",
-            "description": f"Keybase publicly proves you control accounts on: {services}. This permanently links your identities.",
+            "title": "Keybase identity proofs link accounts publicly",
+            "description": f"These accounts are cryptographically linked on Keybase: {services}.",
             "severity": "medium",
         })
 
@@ -515,7 +515,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "cross_platform",
             "title": f"Username found on {len(found_names)} platforms",
-            "description": f"Detected on {labels}{'…' if len(found_names) > 5 else ''} — cross-platform profiling requires no special tools.",
+            "description": f"Same handle on {labels}{'…' if len(found_names) > 5 else ''}. Easy to correlate across platforms.",
             "severity": "high",
         })
     elif len(found_names) == 2:
@@ -523,14 +523,14 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "cross_platform",
             "title": "Username linked across platforms",
-            "description": f"Found on {labels} — the same handle enables cross-platform identity mapping.",
+            "description": f"Found on {labels} — same handle makes cross-platform lookup trivial.",
             "severity": "medium",
         })
     elif len(found_names) == 1:
         risks.append({
             "id": "single_platform",
             "title": "Public profile detected",
-            "description": f"Active on {_PLATFORM_LABELS.get(found_names[0], found_names[0])}. Activity history and connections are publicly visible.",
+            "description": f"Active on {_PLATFORM_LABELS.get(found_names[0], found_names[0])}. Activity history and connections are publicly indexed.",
             "severity": "low",
         })
 
@@ -540,14 +540,14 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
             risks.append({
                 "id": "new_domain",
                 "title": "Very recently registered domain",
-                "description": f"{domain} was registered just {age} days ago. Extremely new domains are a strong phishing indicator.",
+                "description": f"{domain} was registered {age} days ago. Domains this new get extra scrutiny from spam filters.",
                 "severity": "high",
             })
         elif age < 365:
             risks.append({
                 "id": "young_domain",
                 "title": "Recently registered domain",
-                "description": f"{domain} is {age} days old. Low-age domains carry higher fraud and spam association risk.",
+                "description": f"{domain} is {age} days old. Newer domains have less established trust with mail filters.",
                 "severity": "medium",
             })
 
@@ -555,7 +555,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "no_spf",
             "title": f"No SPF record — {domain} is spoofable",
-            "description": "Without SPF, anyone can send email appearing to come from your domain. A trivial impersonation setup.",
+            "description": f"Without SPF, anyone can send email that appears to come from {domain}.",
             "severity": "medium",
         })
 
@@ -563,7 +563,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "no_dmarc",
             "title": "No DMARC policy configured",
-            "description": f"DMARC is missing on {domain}. Email receivers have no policy instruction when spoofed mail arrives.",
+            "description": f"DMARC is missing on {domain}. Mail receivers have no policy to fall back on when spoofed mail arrives.",
             "severity": "low",
         })
 
@@ -571,7 +571,7 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
         risks.append({
             "id": "low_profile",
             "title": "Minimal public footprint",
-            "description": "No significant exposure risks detected across checked platforms. Periodic re-scans are recommended.",
+            "description": "Nothing significant found across checked platforms.",
             "severity": "low",
         })
 
@@ -595,29 +595,29 @@ def build_actions(risks: list, platforms: dict) -> list:
         })
         actions.append({
             "id":       "hibp_2fa",
-            "title":    "Enable two-factor authentication on every account tied to this email",
+            "title":    "Enable two-factor authentication on all accounts using this email",
             "priority": "high",
         })
     elif not hibp.get("checked"):
         actions.append({
             "id":       "hibp",
-            "title":    "Check your email on HaveIBeenPwned for breach exposure",
+            "title":    "Check this email on HaveIBeenPwned",
             "priority": "high",
         })
 
     if "github_email" in ids:
-        actions.append({"id": "fix_gh_email",  "title": "Set GitHub email to private in profile settings",         "priority": "high"})
+        actions.append({"id": "fix_gh_email",  "title": "Set GitHub email to private (Settings → Emails)",         "priority": "high"})
     if "no_spf" in ids:
-        actions.append({"id": "add_spf",        "title": "Add a v=spf1 TXT record to your domain DNS",             "priority": "high"})
+        actions.append({"id": "add_spf",        "title": "Add a v=spf1 TXT record to the domain DNS",              "priority": "high"})
     if "new_domain" in ids or "young_domain" in ids:
-        actions.append({"id": "domain_rep",     "title": "Submit domain to Google/Microsoft Safe Browsing review",  "priority": "high"})
+        actions.append({"id": "domain_rep",     "title": "Submit domain to Google Safe Browsing for review",        "priority": "high"})
     if "cross_platform" in ids or "single_platform" in ids:
-        actions.append({"id": "diff_usernames", "title": "Use distinct usernames across platforms",                 "priority": "medium"})
+        actions.append({"id": "diff_usernames", "title": "Use different usernames across platforms",                "priority": "medium"})
     if "no_dmarc" in ids:
-        actions.append({"id": "add_dmarc",      "title": "Configure a DMARC policy (p=quarantine recommended)",    "priority": "medium"})
+        actions.append({"id": "add_dmarc",      "title": "Add a DMARC policy (p=quarantine is a good start)",      "priority": "medium"})
 
-    actions.append({"id": "privacy_audit",  "title": "Audit privacy settings on all active platforms",             "priority": "medium"})
-    actions.append({"id": "data_brokers",   "title": "Submit opt-out requests to Spokeo, Whitepages, BeenVerified","priority": "low"})
+    actions.append({"id": "privacy_audit",  "title": "Review privacy settings on each active platform",            "priority": "medium"})
+    actions.append({"id": "data_brokers",   "title": "Opt out of Spokeo, Whitepages, and BeenVerified",            "priority": "low"})
 
     return actions
 
@@ -652,50 +652,48 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
     if ms.get("found"):
         rec_sigs.append({"label": f"Mastodon presence — {ms.get('followers', 0):,} followers", "sentiment": "positive"})
     if n >= 2:
-        rec_sigs.append({"label": f"Consistent identity across {n} developer platforms", "sentiment": "positive"})
+        rec_sigs.append({"label": f"Same username across {n} platforms", "sentiment": "positive"})
     if gh.get("email_public"):
-        rec_sigs.append({"label": "Professional email publicly accessible on GitHub", "sentiment": "neutral"})
-    rec_sigs.append({"label": "No controversial public content flagged", "sentiment": "positive"})
+        rec_sigs.append({"label": "Email address visible on GitHub profile", "sentiment": "neutral"})
 
     if n == 0:
-        rec_headline = "Limited discoverable professional presence"
-        rec_summary = f"A recruiter searching for '{username}' would find minimal public signal. This reduces discoverability but also limits background research."
+        rec_headline = "No public developer presence found"
+        rec_summary = f"A recruiter searching for '{username}' would find nothing. Hard to background-check, but also hard to verify."
     elif n >= 2:
-        rec_headline = f"Active developer presence on {n} platforms"
-        rec_summary = f"{username} is findable on {', '.join(p.capitalize() for p in found)}. A recruiter would view this as evidence of genuine community engagement and technical activity."
+        rec_headline = f"Developer presence on {n} platforms"
+        rec_summary = f"{username} shows up on {', '.join(p.capitalize() for p in found)}. Easy to verify activity and cross-reference."
     else:
-        rec_headline = "Partial professional presence"
-        rec_summary = f"{username} is active on {found[0].capitalize()}. A recruiter will find some signal, but cross-platform verification is limited."
+        rec_headline = "Presence on one platform"
+        rec_summary = f"{username} is on {found[0].capitalize()}. Some signal, but nothing to cross-reference against."
 
     # ── Advertiser ──
     adv_sigs = []
     if gh.get("found"):
-        adv_sigs.append({"label": "Inferred interests: software, open source, developer tooling", "sentiment": "neutral"})
-        adv_sigs.append({"label": "Likely B2B software purchaser based on GitHub activity", "sentiment": "neutral"})
+        adv_sigs.append({"label": "Interests: software, open source, dev tooling", "sentiment": "neutral"})
+        adv_sigs.append({"label": "GitHub activity suggests B2B software profile", "sentiment": "neutral"})
     if gl.get("found"):
-        adv_sigs.append({"label": "GitLab presence extends developer platform footprint", "sentiment": "neutral"})
+        adv_sigs.append({"label": "GitLab — additional developer platform footprint", "sentiment": "neutral"})
     if dt.get("found"):
-        adv_sigs.append({"label": "DEV.to presence — developer community engagement", "sentiment": "neutral"})
+        adv_sigs.append({"label": "DEV.to — developer writing and community activity", "sentiment": "neutral"})
     if hn.get("found"):
-        adv_sigs.append({"label": "HN presence — tech-sector engagement confirmed", "sentiment": "neutral"})
+        adv_sigs.append({"label": "HackerNews — tech-sector activity confirmed", "sentiment": "neutral"})
     if ms.get("found"):
-        adv_sigs.append({"label": "Mastodon presence — decentralized social graph visible", "sentiment": "neutral"})
+        adv_sigs.append({"label": "Mastodon — social graph and posts publicly visible", "sentiment": "neutral"})
     if gv.get("found"):
-        adv_sigs.append({"label": "Email hash resolves across Gravatar-linked services", "sentiment": "warning"})
+        adv_sigs.append({"label": "Email hash resolves on Gravatar — email is active", "sentiment": "warning"})
     if n >= 2:
-        adv_sigs.append({"label": f"Retargetable via username match across {n} platforms", "sentiment": "warning"})
+        adv_sigs.append({"label": f"Username match across {n} platforms enables cross-targeting", "sentiment": "warning"})
     if domain and dns_info.get("resolves"):
-        adv_sigs.append({"label": "Personal domain links to professional identity", "sentiment": "neutral"})
-    adv_sigs.append({"label": "Email address enables data-broker cross-referencing", "sentiment": "warning"})
-    adv_sigs.append({"label": "Activity timestamps reveal active-hours pattern", "sentiment": "neutral"})
+        adv_sigs.append({"label": "Personal domain ties to real identity", "sentiment": "neutral"})
+    adv_sigs.append({"label": "Email searchable in data broker databases", "sentiment": "warning"})
+    adv_sigs.append({"label": "Post timestamps reveal timezone and active hours", "sentiment": "neutral"})
 
     adv_summary = (
-        f"{username}'s public presence across {n} platform{'s' if n != 1 else ''} creates an inferred advertiser profile. "
-        "Marketers can cross-reference platform activity to estimate occupation, interests, and income bracket — "
-        "without any direct interaction."
+        f"Enough public data on {username} to build an interest profile. "
+        "Platform activity, email, and username can be cross-referenced for targeting."
     ) if n > 0 else (
-        f"Limited public presence makes direct platform-based ad targeting difficult for '{username}'. "
-        "Email-based targeting through data brokers may still be possible."
+        f"Not much to work with for platform-based targeting on '{username}'. "
+        "Email-based targeting through data brokers is still possible."
     )
 
     # ── Threat actor ──
@@ -705,9 +703,9 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
     elif gh.get("found"):
         threat_sigs.append({"label": "GitHub profile found — public activity visible", "sentiment": "warning"})
     if n >= 2:
-        threat_sigs.append({"label": f"'{username}' found across {n} platforms — identity correlation requires no special tools", "sentiment": "danger"})
+        threat_sigs.append({"label": f"'{username}' on {n} platforms — account correlation is trivial", "sentiment": "danger"})
     if gh.get("found"):
-        threat_sigs.append({"label": "Public repos may expose employer, tech stack, project context", "sentiment": "warning"})
+        threat_sigs.append({"label": "Public repos may reveal employer, tech stack, and project context", "sentiment": "warning"})
     if kb.get("found"):
         proofs = kb.get("proof_services", [])
         threat_sigs.append({"label": f"Keybase proofs publicly link accounts: {', '.join(proofs) if proofs else 'multiple'}", "sentiment": "danger"})
@@ -737,31 +735,31 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
     threat_sigs.append({"label": "Activity timestamps can reveal timezone and daily schedule", "sentiment": "warning"})
 
     if n == 0:
-        threat_headline = "Low-profile target — limited attack surface"
+        threat_headline = "Low profile — small attack surface"
         threat_summary = (
-            f"Minimal public presence for '{username}' makes targeted social engineering harder. "
-            "The email address alone remains a phishing and credential-stuffing vector."
+            f"Not much publicly available on '{username}'. "
+            "The email address alone is still a usable phishing and credential-stuffing target."
         )
     else:
         has_email_risk  = gh.get("found") and gh.get("email_public")
         hibp_local      = platforms.get("hibp", {})
         breach_suffix   = (
-            f"Email confirmed in {hibp_local.get('breach_count', 0)} breach(es) — credential stuffing is a live risk."
+            f"Email is in {hibp_local.get('breach_count', 0)} known breach(es) — credential stuffing is a real risk."
             if hibp_local.get("checked") and hibp_local.get("found")
             else "No breaches found for this email."
             if hibp_local.get("checked")
-            else "Add HIBP_API_KEY to check breach exposure."
+            else "Breach status not checked — add HIBP_API_KEY."
         )
-        threat_headline = f"Moderate exposure — {'email and ' if has_email_risk else ''}identity linkable across {n} platform{'s' if n != 1 else ''}"
+        threat_headline = f"{'Email exposed · ' if has_email_risk else ''}Identity linkable across {n} platform{'s' if n != 1 else ''}"
         threat_summary = (
-            f"A threat actor can cross-reference '{username}' across {n} platform{'s' if n != 1 else ''} in minutes. "
-            + (f"The public GitHub email significantly elevates phishing risk. " if has_email_risk else "")
+            f"'{username}' appears on {n} platform{'s' if n != 1 else ''}. "
+            + ("Public GitHub email makes phishing straightforward. " if has_email_risk else "")
             + breach_suffix
         )
 
     return {
         "recruiter":  {"headline": rec_headline,  "signals": rec_sigs[:6],    "summary": rec_summary},
-        "advertiser": {"headline": "Inferred targeting profile from public platform activity", "signals": adv_sigs[:6], "summary": adv_summary},
+        "advertiser": {"headline": "Ad targeting profile from public data", "signals": adv_sigs[:6], "summary": adv_summary},
         "threat":     {"headline": threat_headline, "signals": threat_sigs[:6], "summary": threat_summary},
     }
 
