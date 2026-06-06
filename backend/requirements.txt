@@ -3,3 +3,4 @@ uvicorn==0.22.0
 httpx==0.25.2
 dnspython==2.4.2
 python-whois==0.9.4
+python-dotenv==1.0.0

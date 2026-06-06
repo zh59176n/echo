@@ -6,9 +6,13 @@ Checks: GitHub · GitLab · DEV.to · HackerNews · Keybase · Mastodon · Grava
 
 import asyncio
 import hashlib
+import os
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse, quote
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import dns.asyncresolver
 import httpx
@@ -21,6 +25,8 @@ try:
     _WHOIS_OK = True
 except ImportError:
     _WHOIS_OK = False
+
+HIBP_API_KEY = os.getenv("HIBP_API_KEY", "").strip()
 
 
 app = FastAPI(title="Echo API", description="Privacy intelligence API — real OSINT scanner")
@@ -150,6 +156,39 @@ async def scan_gravatar(email: str, client: httpx.AsyncClient) -> dict:
         return {"found": False, "error": True}
 
 
+async def scan_hibp(email: str, client: httpx.AsyncClient) -> dict:
+    """Check HaveIBeenPwned for known data breaches containing this email address."""
+    if not HIBP_API_KEY:
+        return {"checked": False}
+    try:
+        r = await client.get(
+            f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote(email)}?truncateResponse=false",
+            headers={
+                "hibp-api-key": HIBP_API_KEY,
+                "User-Agent":   "Echo-OSINT-Scanner/1.0",
+            },
+            timeout=8.0,
+        )
+        if r.status_code == 200:
+            breaches = r.json()
+            names        = [b.get("Name", "") for b in breaches]
+            data_classes = sorted({dc for b in breaches for dc in b.get("DataClasses", [])})
+            return {
+                "checked":       True,
+                "found":         True,
+                "breach_count":  len(breaches),
+                "breach_names":  names[:10],
+                "data_classes":  data_classes[:15],
+            }
+        if r.status_code == 404:
+            return {"checked": True, "found": False, "breach_count": 0}
+        if r.status_code == 401:
+            return {"checked": False, "error": "invalid_key"}
+        return {"checked": False, "error": "api_error"}
+    except Exception:
+        return {"checked": False, "error": "request_failed"}
+
+
 async def scan_keybase(username: str, client: httpx.AsyncClient) -> dict:
     """Keybase shows cryptographically verified cross-platform identity proofs."""
     try:
@@ -194,6 +233,7 @@ async def scan_mastodon(username: str, client: httpx.AsyncClient) -> dict:
         return {"found": False}
     except Exception:
         return {"found": False, "error": True}
+
 
 
 # ─── DNS analysis ─────────────────────────────────────────────────────────────
@@ -304,6 +344,9 @@ def compute_score(platforms: dict, dns_info: dict, gh_email_public: bool, gravat
         score += 5                       # email exposed on GitHub
     if gravatar_found:
         score += 4                       # email tied to public web profile
+    hibp = platforms.get("hibp", {})
+    if hibp.get("checked") and hibp.get("found"):
+        score += min(hibp.get("breach_count", 1) * 2, 10)  # up to +10 for breaches
     return min(score, 100)
 
 
@@ -363,6 +406,24 @@ def build_signals(platforms: dict, dns_info: dict, whois_info: dict, domain: Opt
         },
     ]
 
+    hibp = platforms.get("hibp", {})
+    if hibp.get("checked"):
+        if hibp.get("found"):
+            count = hibp.get("breach_count", 0)
+            sigs.append({
+                "id":       "hibp",
+                "label":    f"HaveIBeenPwned — email in {count} breach{'es' if count != 1 else ''}",
+                "icon":     "🔓",
+                "detected": True,
+            })
+        else:
+            sigs.append({
+                "id":       "hibp",
+                "label":    "HaveIBeenPwned — no breaches found",
+                "icon":     "🔓",
+                "detected": False,
+            })
+
     if domain:
         age = whois_info.get("age_days")
         if age is not None:
@@ -400,11 +461,29 @@ _PLATFORM_LABELS = {
 }
 
 def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict, domain: Optional[str]) -> list:
-    gh = platforms["github"]
-    kb = platforms["keybase"]
-    gv = platforms["gravatar"]
-    found_names = [k for k, v in platforms.items() if v.get("found")]
+    gh   = platforms["github"]
+    kb   = platforms["keybase"]
+    gv   = platforms["gravatar"]
+    hibp = platforms.get("hibp", {})
+    found_names = [k for k, v in platforms.items() if v.get("found") and k != "hibp"]
     risks = []
+
+    if hibp.get("checked") and hibp.get("found"):
+        count  = hibp.get("breach_count", 0)
+        names  = hibp.get("breach_names", [])
+        dcs    = hibp.get("data_classes", [])
+        name_str = ", ".join(names[:5]) + ("…" if len(names) > 5 else "")
+        dc_str   = ", ".join(dcs[:6])   + ("…" if len(dcs)   > 6 else "")
+        risks.append({
+            "id":          "hibp_breaches",
+            "title":       f"Email found in {count} data breach{'es' if count != 1 else ''}",
+            "description": (
+                f"Exposed in: {name_str}. "
+                + (f"Data types compromised: {dc_str}. " if dc_str else "")
+                + "Credential stuffing tools use these databases to automate account takeover."
+            ),
+            "severity": "high",
+        })
 
     if gh.get("found") and gh.get("email_public"):
         risks.append({
@@ -501,24 +580,43 @@ def build_risks(username: str, platforms: dict, dns_info: dict, whois_info: dict
 
 # ─── Actions ─────────────────────────────────────────────────────────────────
 
-def build_actions(risks: list) -> list:
-    ids = {r["id"] for r in risks}
+def build_actions(risks: list, platforms: dict) -> list:
+    ids  = {r["id"] for r in risks}
+    hibp = platforms.get("hibp", {})
     actions = []
 
-    if "github_email" in ids:
-        actions.append({"id": "fix_gh_email",   "title": "Set GitHub email to private in profile settings",        "priority": "high"})
-    if "no_spf" in ids:
-        actions.append({"id": "add_spf",         "title": "Add a v=spf1 TXT record to your domain DNS",            "priority": "high"})
-    if "new_domain" in ids or "young_domain" in ids:
-        actions.append({"id": "domain_rep",      "title": "Submit domain to Google/Microsoft Safe Browsing review", "priority": "high"})
-    if "cross_platform" in ids or "single_platform" in ids:
-        actions.append({"id": "diff_usernames",  "title": "Use distinct usernames across platforms",               "priority": "medium"})
-    if "no_dmarc" in ids:
-        actions.append({"id": "add_dmarc",       "title": "Configure a DMARC policy (p=quarantine recommended)",   "priority": "medium"})
+    if "hibp_breaches" in ids:
+        count = hibp.get("breach_count", 0)
+        names = hibp.get("breach_names", [])
+        actions.append({
+            "id":       "hibp_rotate",
+            "title":    f"Rotate passwords for {count} breached service{'s' if count != 1 else ''}: {', '.join(names[:4])}{'…' if len(names) > 4 else ''}",
+            "priority": "high",
+        })
+        actions.append({
+            "id":       "hibp_2fa",
+            "title":    "Enable two-factor authentication on every account tied to this email",
+            "priority": "high",
+        })
+    elif not hibp.get("checked"):
+        actions.append({
+            "id":       "hibp",
+            "title":    "Check your email on HaveIBeenPwned for breach exposure",
+            "priority": "high",
+        })
 
-    # Always present
-    actions.append({"id": "hibp",           "title": "Check your email on HaveIBeenPwned for breach exposure",    "priority": "high"})
-    actions.append({"id": "privacy_audit",  "title": "Audit privacy settings on all active platforms",            "priority": "medium"})
+    if "github_email" in ids:
+        actions.append({"id": "fix_gh_email",  "title": "Set GitHub email to private in profile settings",         "priority": "high"})
+    if "no_spf" in ids:
+        actions.append({"id": "add_spf",        "title": "Add a v=spf1 TXT record to your domain DNS",             "priority": "high"})
+    if "new_domain" in ids or "young_domain" in ids:
+        actions.append({"id": "domain_rep",     "title": "Submit domain to Google/Microsoft Safe Browsing review",  "priority": "high"})
+    if "cross_platform" in ids or "single_platform" in ids:
+        actions.append({"id": "diff_usernames", "title": "Use distinct usernames across platforms",                 "priority": "medium"})
+    if "no_dmarc" in ids:
+        actions.append({"id": "add_dmarc",      "title": "Configure a DMARC policy (p=quarantine recommended)",    "priority": "medium"})
+
+    actions.append({"id": "privacy_audit",  "title": "Audit privacy settings on all active platforms",             "priority": "medium"})
     actions.append({"id": "data_brokers",   "title": "Submit opt-out requests to Spokeo, Whitepages, BeenVerified","priority": "low"})
 
     return actions
@@ -624,7 +722,18 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
     age = whois_info.get("age_days")
     if age is not None and age < 365:
         threat_sigs.append({"label": f"Domain only {age} days old — low established trust", "sentiment": "warning"})
-    threat_sigs.append({"label": "Breach data not checked — add HaveIBeenPwned key to complete picture", "sentiment": "neutral"})
+    hibp = platforms.get("hibp", {})
+    if hibp.get("checked") and hibp.get("found"):
+        count = hibp.get("breach_count", 0)
+        names = hibp.get("breach_names", [])
+        threat_sigs.append({
+            "label":     f"Email found in {count} breach{'es' if count != 1 else ''} ({', '.join(names[:3])}{'…' if len(names) > 3 else ''}) — credential stuffing risk",
+            "sentiment": "danger",
+        })
+    elif hibp.get("checked"):
+        threat_sigs.append({"label": "HaveIBeenPwned — no known breaches for this email", "sentiment": "positive"})
+    else:
+        threat_sigs.append({"label": "Breach data not checked — add HIBP_API_KEY to complete picture", "sentiment": "neutral"})
     threat_sigs.append({"label": "Activity timestamps can reveal timezone and daily schedule", "sentiment": "warning"})
 
     if n == 0:
@@ -634,12 +743,20 @@ def build_views(username: str, email: str, platforms: dict, dns_info: dict, whoi
             "The email address alone remains a phishing and credential-stuffing vector."
         )
     else:
-        has_email_risk = gh.get("found") and gh.get("email_public")
+        has_email_risk  = gh.get("found") and gh.get("email_public")
+        hibp_local      = platforms.get("hibp", {})
+        breach_suffix   = (
+            f"Email confirmed in {hibp_local.get('breach_count', 0)} breach(es) — credential stuffing is a live risk."
+            if hibp_local.get("checked") and hibp_local.get("found")
+            else "No breaches found for this email."
+            if hibp_local.get("checked")
+            else "Add HIBP_API_KEY to check breach exposure."
+        )
         threat_headline = f"Moderate exposure — {'email and ' if has_email_risk else ''}identity linkable across {n} platform{'s' if n != 1 else ''}"
         threat_summary = (
             f"A threat actor can cross-reference '{username}' across {n} platform{'s' if n != 1 else ''} in minutes. "
             + (f"The public GitHub email significantly elevates phishing risk. " if has_email_risk else "")
-            + "No breach data was checked in this scan — add a HaveIBeenPwned key to complete the picture."
+            + breach_suffix
         )
 
     return {
@@ -672,18 +789,22 @@ async def report(payload: ReportRequest):
     async def _no_dns():
         return {}
 
+    async def _hibp_skip():
+        return {"checked": False}
+
     async with httpx.AsyncClient() as client:
         if scan_mode == "quick":
-            gh, kb, gv = await asyncio.gather(
+            gh, kb, gv, hibp_result = await asyncio.gather(
                 scan_github(username, client)  if username else _skip(),
                 scan_keybase(username, client) if username else _skip(),
                 scan_gravatar(email, client)   if email    else _skip(),
+                scan_hibp(email, client)       if email    else _hibp_skip(),
                 return_exceptions=True,
             )
             gl = dt = hn = ms = {"found": False}
             dns_info = {}
         else:
-            gh, gl, dt, hn, kb, ms, gv, dns_info = await asyncio.gather(
+            gh, gl, dt, hn, kb, ms, gv, hibp_result, dns_info = await asyncio.gather(
                 scan_github(username, client)     if username else _skip(),
                 scan_gitlab(username, client)     if username else _skip(),
                 scan_devto(username, client)      if username else _skip(),
@@ -691,25 +812,28 @@ async def report(payload: ReportRequest):
                 scan_keybase(username, client)    if username else _skip(),
                 scan_mastodon(username, client)   if username else _skip(),
                 scan_gravatar(email, client)      if email    else _skip(),
-                analyze_dns(check_domain) if check_domain else _no_dns(),
+                scan_hibp(email, client)          if email    else _hibp_skip(),
+                analyze_dns(check_domain)         if check_domain else _no_dns(),
                 return_exceptions=True,
             )
 
     def _safe(v):
         return v if isinstance(v, dict) else {"found": False, "error": True}
 
-    gh       = _safe(gh)
-    gl       = _safe(gl)
-    dt       = _safe(dt)
-    hn       = _safe(hn)
-    kb       = _safe(kb)
-    ms       = _safe(ms)
-    gv       = _safe(gv)
-    dns_info = dns_info if isinstance(dns_info, dict) else {}
+    gh          = _safe(gh)
+    gl          = _safe(gl)
+    dt          = _safe(dt)
+    hn          = _safe(hn)
+    kb          = _safe(kb)
+    ms          = _safe(ms)
+    gv          = _safe(gv)
+    hibp_result = hibp_result if isinstance(hibp_result, dict) else {"checked": False, "error": True}
+    dns_info    = dns_info if isinstance(dns_info, dict) else {}
 
     platforms = {
         "github": gh, "gitlab": gl, "devto": dt,
         "hackernews": hn, "keybase": kb, "mastodon": ms, "gravatar": gv,
+        "hibp": hibp_result,
     }
 
     # WHOIS only in deep scan
@@ -717,12 +841,12 @@ async def report(payload: ReportRequest):
 
     display_name = username or full_name
     risks   = build_risks(display_name, platforms, dns_info, whois_info, site_domain)
-    actions = build_actions(risks)
+    actions = build_actions(risks, platforms)
     score   = compute_score(platforms, dns_info, gh.get("email_public", False), gv.get("found", False))
     all_signals = build_signals(platforms, dns_info, whois_info, site_domain)
     # For quick scan, only surface signals for platforms actually checked
     if scan_mode == "quick":
-        checked = {"github", "keybase", "gravatar"}
+        checked = {"github", "keybase", "gravatar", "hibp"}
         signals = [s for s in all_signals if s["id"] in checked]
     else:
         signals = all_signals
@@ -734,11 +858,12 @@ async def report(payload: ReportRequest):
     else:
         views = all_views
 
-    platforms_checked = (
+    base_platforms = (
         ["github", "keybase", "gravatar"]
         if scan_mode == "quick"
         else ["github", "gitlab", "devto", "hackernews", "keybase", "mastodon", "gravatar"]
     )
+    platforms_checked = base_platforms + (["haveibeenpwned"] if hibp_result.get("checked") else [])
 
     return {
         "username":            username,
