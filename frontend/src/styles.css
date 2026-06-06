@@ -657,6 +657,11 @@ body::before {
   color: var(--indigo);
 }
 
+/* Per-view tab themes — active state */
+.view-tab--recruiter.active  { background: rgba(99, 102, 241, 0.14); color: #818cf8; }
+.view-tab--advertiser.active { background: rgba(245, 158, 11, 0.13); color: #fbbf24; }
+.view-tab--threat.active     { background: rgba(239, 68,  68,  0.13); color: #f87171; }
+
 /* ======================================
    Dashboard Body
    ====================================== */
@@ -921,6 +926,42 @@ body::before {
 .view-panel:hover {
   border-color: rgba(148, 163, 184, 0.18);
   box-shadow: var(--shadow-hover);
+}
+
+/* Recruiter — indigo/blue: professional, clean */
+.view-panel--recruiter {
+  border-color: rgba(99, 102, 241, 0.22);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, var(--grad-card) 55%);
+}
+.view-panel--recruiter:hover { border-color: rgba(99, 102, 241, 0.35); }
+.view-panel--recruiter .view-eyebrow { color: #818cf8; }
+.view-panel--recruiter .view-summary {
+  border-color: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+/* Advertiser — amber/orange: commercial targeting, mild warning */
+.view-panel--advertiser {
+  border-color: rgba(245, 158, 11, 0.22);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, var(--grad-card) 55%);
+}
+.view-panel--advertiser:hover { border-color: rgba(245, 158, 11, 0.35); }
+.view-panel--advertiser .view-eyebrow { color: #fbbf24; }
+.view-panel--advertiser .view-summary {
+  border-color: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+/* Threat — red: danger, attack framing */
+.view-panel--threat {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, var(--grad-card) 55%);
+}
+.view-panel--threat:hover { border-color: rgba(239, 68, 68, 0.35); }
+.view-panel--threat .view-eyebrow { color: #f87171; }
+.view-panel--threat .view-summary {
+  border-color: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.04);
 }
 
 .view-panel-header {
@@ -1270,23 +1311,67 @@ body::before {
    Responsive
    ====================================== */
 
+/* ── Tablet (≤ 900px) ─────────────────── */
 @media (max-width: 900px) {
-  .cards-grid            { grid-template-columns: 1fr; }
-  .view-signals-grid     { grid-template-columns: 1fr; }
-  .score-hero            { flex-direction: column; text-align: center; padding: 28px 24px; gap: 24px; }
-  .score-meta            { justify-content: center; }
+  .cards-grid        { grid-template-columns: 1fr; }
+  .view-signals-grid { grid-template-columns: 1fr; }
+  .score-hero {
+    flex-direction: column;
+    text-align: center;
+    padding: 28px 24px;
+    gap: 20px;
+  }
+  .score-ring-wrap   { display: flex; justify-content: center; }
+  .score-meta        { justify-content: center; }
+  .scan-meta-bar     { justify-content: center; }
+  .hero-description  { margin-bottom: 36px; }
+  .feature-pills     { margin-bottom: 44px; }
 }
 
+/* ── Mobile (≤ 680px) ─────────────────── */
 @media (max-width: 680px) {
-  .nav, .dash-nav   { padding: 14px 18px; }
-  .hero             { padding: 52px 18px 40px; }
-  .hero-title       { letter-spacing: -2px; }
-  .form-card        { margin: 0 16px 60px; padding: 24px 20px; }
-  .dash-body        { padding: 20px 16px 56px; }
-  .view-panel       { padding: 24px 20px; }
-  .attack-card      { padding: 24px 20px; }
+  .nav, .dash-nav    { padding: 14px 18px; }
+  .hero              { padding: 48px 18px 36px; }
+  .hero-title        { letter-spacing: -2px; }
+  .hero-description  { margin-bottom: 28px; font-size: 15px; }
+  .feature-pills     { margin-bottom: 36px; gap: 7px; }
+  .pill              { font-size: 12px; padding: 6px 12px; }
+
+  .form-card         { margin: 0 14px 56px; padding: 24px 18px; }
+
+  .dash-body         { padding: 18px 14px 56px; }
+  .score-hero        { padding: 22px 18px; gap: 16px; }
+  .score-title       { font-size: 21px; }
+  .score-desc        { font-size: 13px; margin-bottom: 14px; }
+  .score-eyebrow     { font-size: 10px; }
+  .scan-meta-bar     { font-size: 10px; }
+  .scan-mode-badge   { font-size: 10px; padding: 3px 8px; }
+
+  .card              { padding: 18px 16px; }
+  .card-title        { margin-bottom: 14px; }
+  .risk-header       { flex-wrap: wrap; }
+  .risk-desc         { font-size: 11.5px; }
+
+  .view-panel        { padding: 22px 18px; }
   .view-panel-header { flex-direction: column-reverse; gap: 10px; }
-  .view-icon        { font-size: 28px; }
-  .view-tabs        { width: 100%; order: 3; }
-  .view-tab         { flex: 1; text-align: center; padding: 7px 8px; font-size: 12px; }
+  .view-icon         { font-size: 26px; }
+  .view-headline     { font-size: 16px; }
+  .view-summary      { font-size: 13px; }
+
+  .view-tabs         { width: 100%; order: 3; }
+  .view-tab          { flex: 1; text-align: center; padding: 7px 6px; font-size: 11.5px; }
+
+  .attack-card       { padding: 22px 18px; }
+  .attack-card-header { flex-wrap: wrap; gap: 10px; }
+  .technique-header  { gap: 6px; }
+  .technique-desc    { font-size: 12px; }
+}
+
+/* ── Small phones (≤ 420px) ───────────── */
+@media (max-width: 420px) {
+  .score-hero        { padding: 18px 14px; }
+  .score-title       { font-size: 19px; }
+  .card              { padding: 16px 14px; }
+  .view-tab          { font-size: 11px; padding: 6px 4px; }
+  .hero-title        { letter-spacing: -1.5px; }
 }

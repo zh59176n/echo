@@ -13,6 +13,7 @@ export default function App() {
     setTimeout(() => {
       if (nextReport) setReport(nextReport)
       setView(nextView)
+      window.scrollTo({ top: 0, behavior: 'instant' })
       setPhase('entering')
       setTimeout(() => setPhase('idle'), 480)
     }, 300)
